@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ConfigProvider }   from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider }   from './context/ThemeContext'
 import { LoginScreen }      from './components/shared/LoginScreen'
 import { Sidebar }          from './components/layout/Sidebar'
 import { Header }           from './components/layout/Header'
@@ -71,11 +72,13 @@ function AppWithAuth() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ConfigProvider>
-          <AppWithAuth />
-        </ConfigProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ConfigProvider>
+            <AppWithAuth />
+          </ConfigProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

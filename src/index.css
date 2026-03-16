@@ -2,25 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg-primary: #0f1117;
+/* ─── Theme definitions ───────────────────────────────────────────────────────
+   All CSS variables hold space-separated RGB channels so Tailwind's opacity
+   modifier syntax (e.g. bg-nats-bg/50) works across every theme.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Dark (default) */
+:root,
+[data-theme="dark"] {
+  --nats-bg:             15 17 23;
+  --nats-card:           26 29 39;
+  --nats-border:         45 49 72;
+  --nats-accent:         0 200 180;
+  --nats-accent-2:       77 143 245;
+  --nats-ok:             0 212 161;
+  --nats-warn:           245 166 35;
+  --nats-error:          255 77 109;
+  --nats-text-primary:   232 234 246;
+  --nats-text-secondary: 139 146 179;
+  --nats-text-muted:     77 82 120;
+  /* Legacy CSS custom properties (kept for body/utility use) */
+  --bg-primary:   #0f1117;
   --bg-secondary: #1a1d27;
-  --bg-tertiary: #242736;
-  --border: #2d3148;
   --text-primary: #e8eaf6;
-  --text-secondary: #8b92b3;
-  --text-muted: #4d5278;
-  --accent-primary: #00c8b4;
-  --accent-secondary: #4d8ff5;
-  --status-ok: #00d4a1;
-  --status-warn: #f5a623;
-  --status-error: #ff4d6d;
-  --status-info: #4d8ff5;
-  --chart-1: #00c8b4;
-  --chart-2: #4d8ff5;
-  --chart-3: #f5a623;
-  --chart-4: #a78bfa;
 }
+
+/* Light */
+[data-theme="light"] {
+  --nats-bg:             242 244 250;
+  --nats-card:           255 255 255;
+  --nats-border:         213 219 234;
+  --nats-accent:         0 139 125;
+  --nats-accent-2:       37 99 235;
+  --nats-ok:             5 150 105;
+  --nats-warn:           180 100 0;
+  --nats-error:          192 30 45;
+  --nats-text-primary:   15 23 42;
+  --nats-text-secondary: 71 85 105;
+  --nats-text-muted:     148 163 184;
+  --bg-primary:   #f2f4fa;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+}
+
+/* Ocean */
+[data-theme="ocean"] {
+  --nats-bg:             6 13 26;
+  --nats-card:           10 22 48;
+  --nats-border:         22 48 88;
+  --nats-accent:         0 229 208;
+  --nats-accent-2:       59 130 246;
+  --nats-ok:             16 185 129;
+  --nats-warn:           245 158 11;
+  --nats-error:          244 63 94;
+  --nats-text-primary:   224 239 255;
+  --nats-text-secondary: 125 168 212;
+  --nats-text-muted:     58 90 128;
+  --bg-primary:   #060d1a;
+  --bg-secondary: #0a1630;
+  --text-primary: #e0efff;
+}
+
+/* Midnight */
+[data-theme="midnight"] {
+  --nats-bg:             9 9 11;
+  --nats-card:           24 24 27;
+  --nats-border:         39 39 42;
+  --nats-accent:         168 85 247;
+  --nats-accent-2:       129 140 248;
+  --nats-ok:             34 197 94;
+  --nats-warn:           234 179 8;
+  --nats-error:          239 68 68;
+  --nats-text-primary:   250 250 250;
+  --nats-text-secondary: 161 161 170;
+  --nats-text-muted:     82 82 91;
+  --bg-primary:   #09090b;
+  --bg-secondary: #18181b;
+  --text-primary: #fafafa;
+}
+
+/* Nord */
+[data-theme="nord"] {
+  --nats-bg:             46 52 64;
+  --nats-card:           59 66 82;
+  --nats-border:         76 86 106;
+  --nats-accent:         136 192 208;
+  --nats-accent-2:       129 161 193;
+  --nats-ok:             163 190 140;
+  --nats-warn:           235 203 139;
+  --nats-error:          191 97 106;
+  --nats-text-primary:   236 239 244;
+  --nats-text-secondary: 216 222 233;
+  --nats-text-muted:     141 153 181;
+  --bg-primary:   #2e3440;
+  --bg-secondary: #3b4252;
+  --text-primary: #eceff4;
+}
+
+/* ─── Base styles ──────────────────────────────────────────────────────────── */
 
 body {
   margin: 0;
@@ -28,6 +107,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .font-mono {
