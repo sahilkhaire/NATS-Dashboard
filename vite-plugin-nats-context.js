@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { randomBytes } from 'crypto'
-import { connect, StringCodec } from 'nats'
+import { connect, StringCodec, headers as natsHeaders } from 'nats'
 
 const sc = StringCodec()
 
@@ -246,6 +246,89 @@ async function handlePath(nc, path) {
   }
 }
 
+// ─── Scheduled purge store (shared across dev server requests) ────────────────
+
+const schedules = new Map()
+
+function newScheduleId() {
+  return randomBytes(8).toString('hex')
+}
+
+async function executePurge(streamName, subject, natsServer, token) {
+  const nc = await getConn(natsServer, token)
+  const body = subject ? { filter: subject } : {}
+  const resp = await natsRequest(nc, `$JS.API.STREAM.PURGE.${streamName}`, body)
+  if (resp.error) throw new Error(resp.error.description || 'Purge failed')
+  return resp
+}
+
+function armSchedule(schedule) {
+  const target = new Date(schedule.nextRun).getTime()
+  const delay = Math.max(0, target - Date.now())
+
+  const fire = async () => {
+    const s = schedules.get(schedule.id)
+    if (!s) return
+    s.status = 'running'
+    try {
+      await executePurge(s.stream, s.subject, s.server, s.token)
+      s.lastRun = new Date().toISOString()
+      s.error = null
+      if (s.type === 'once') {
+        s.status = 'done'; s.timerId = null
+      } else {
+        s.status = 'active'
+        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
+        s.timerId = setTimeout(fire, s.intervalMs)
+      }
+    } catch (err) {
+      s.lastRun = new Date().toISOString()
+      s.error = err.message
+      if (s.type === 'once') {
+        s.status = 'error'; s.timerId = null
+      } else {
+        s.status = 'active'
+        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
+        s.timerId = setTimeout(fire, s.intervalMs)
+      }
+    }
+  }
+
+  schedule.timerId = setTimeout(fire, delay)
+}
+
+function serializeSchedule(s) {
+  // eslint-disable-next-line no-unused-vars
+  const { timerId, token, server: _srv, ...rest } = s
+  return rest
+}
+
+// ─── Scheduled publish store (dev) ───────────────────────────────────────────
+
+const scheduledPublishes = new Map()
+
+async function executePublish(natsServer, token, subject, payload, headersArr, msgTtl) {
+  const nc = await getConn(natsServer, token)
+  const js = nc.jetstream()
+  let hdr
+  const allHeaders = [...(headersArr || [])]
+  if (msgTtl) allHeaders.push({ key: 'Nats-Msg-Ttl', value: msgTtl })
+  if (allHeaders.length) {
+    hdr = natsHeaders()
+    for (const { key, value } of allHeaders) hdr.append(key, String(value))
+  }
+  const data = payload ? sc.encode(payload) : new Uint8Array(0)
+  const opts = hdr ? { headers: hdr } : {}
+  const ack = await js.publish(subject, data, opts)
+  return { stream: ack.stream, seq: ack.seq, duplicate: ack.duplicate }
+}
+
+function serializePublish(p) {
+  // eslint-disable-next-line no-unused-vars
+  const { timerId, token, server: _srv, ...rest } = p
+  return rest
+}
+
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     let body = ''
@@ -397,6 +480,188 @@ export function natsContextPlugin() {
         } catch (err) {
           res.statusCode = 502
           res.end(JSON.stringify({ error: err.message || 'Stream update failed' }))
+        }
+      })
+
+      // ── Stream publish ──────────────────────────────────────────────────────
+      server.middlewares.use('/api/stream/publish', async (req, res, next) => {
+        // DELETE /api/stream/publish/:id — cancel scheduled publish
+        if (req.method === 'DELETE') {
+          const id = req.url?.replace(/^\//, '').split('?')[0]
+          if (AUTH_ENABLED && !isAuthenticated(req)) {
+            res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+          }
+          res.setHeader('Content-Type', 'application/json')
+          const p = scheduledPublishes.get(id)
+          if (!p) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Publish not found' })); return }
+          if (p.timerId) clearTimeout(p.timerId)
+          scheduledPublishes.delete(id)
+          res.end(JSON.stringify({ ok: true })); return
+        }
+        if (req.method !== 'POST') return next()
+        if (AUTH_ENABLED && !isAuthenticated(req)) {
+          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, subject, payload = '', headers: headersArr = [], scheduleAt, msgTtl, server: serverParam, token: tokenParam } = body
+          if (!stream || !subject) { res.statusCode = 400; res.end(JSON.stringify({ error: 'stream and subject are required' })); return }
+          let natsServer = serverParam; let token = tokenParam
+          if (!natsServer) {
+            const { contexts } = loadNatsContexts()
+            const ctx = contexts[0]
+            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
+          }
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
+
+          if (scheduleAt) {
+            const delay = Math.max(0, new Date(scheduleAt).getTime() - Date.now())
+            const id = newScheduleId()
+            const pub = {
+              id, stream, subject, payload, headers: headersArr, msgTtl: msgTtl || null,
+              server: natsServer, token,
+              scheduleAt, createdAt: new Date().toISOString(),
+              status: 'pending', result: null, error: null, timerId: null,
+            }
+            pub.timerId = setTimeout(async () => {
+              const p = scheduledPublishes.get(id)
+              if (!p) return
+              p.status = 'running'
+              try {
+                p.result = await executePublish(p.server, p.token, p.subject, p.payload, p.headers, p.msgTtl)
+                p.status = 'delivered'
+              } catch (err) {
+                p.error = err.message; p.status = 'error'
+              }
+              p.timerId = null
+            }, delay)
+            scheduledPublishes.set(id, pub)
+            res.statusCode = 201
+            res.end(JSON.stringify({ ok: true, scheduled: true, id, scheduleAt }))
+          } else {
+            const result = await executePublish(natsServer, token, subject, payload, headersArr, msgTtl)
+            res.end(JSON.stringify({ ok: true, scheduled: false, ...result }))
+          }
+        } catch (err) {
+          res.statusCode = 502; res.end(JSON.stringify({ error: err.message || 'Publish failed' }))
+        }
+      })
+
+      server.middlewares.use('/api/stream/publishes', (req, res, next) => {
+        if (req.method !== 'GET') return next()
+        if (AUTH_ENABLED && !isAuthenticated(req)) {
+          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        const reqUrl = new URL(req.url, 'http://x')
+        const streamFilter = reqUrl.searchParams.get('stream')
+        const list = [...scheduledPublishes.values()]
+          .filter(p => !streamFilter || p.stream === streamFilter)
+          .map(serializePublish)
+        res.end(JSON.stringify({ publishes: list }))
+      })
+
+      server.middlewares.use('/api/stream/purge', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (AUTH_ENABLED && !isAuthenticated(req)) {
+          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, subject, server: serverParam, token: tokenParam } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          let natsServer = serverParam; let token = tokenParam
+          if (!natsServer) {
+            const { contexts } = loadNatsContexts()
+            const ctx = contexts[0]
+            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
+          }
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
+          const result = await executePurge(stream, subject || null, natsServer, token)
+          res.end(JSON.stringify({ ok: true, purged: result.purged ?? 0 }))
+        } catch (err) {
+          res.statusCode = 502; res.end(JSON.stringify({ error: err.message || 'Purge failed' }))
+        }
+      })
+
+      server.middlewares.use('/api/stream/schedules', (req, res, next) => {
+        if (req.method !== 'GET') return next()
+        if (AUTH_ENABLED && !isAuthenticated(req)) {
+          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        const reqUrl = new URL(req.url, 'http://x')
+        const streamFilter = reqUrl.searchParams.get('stream')
+        const list = [...schedules.values()]
+          .filter(s => !streamFilter || s.stream === streamFilter)
+          .map(serializeSchedule)
+        res.end(JSON.stringify({ schedules: list }))
+      })
+
+      server.middlewares.use('/api/stream/schedule', async (req, res, next) => {
+        // DELETE /api/stream/schedule/:id
+        if (req.method === 'DELETE') {
+          const id = req.url?.replace(/^\//, '').split('?')[0]
+          if (AUTH_ENABLED && !isAuthenticated(req)) {
+            res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+          }
+          res.setHeader('Content-Type', 'application/json')
+          const s = schedules.get(id)
+          if (!s) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Schedule not found' })); return }
+          if (s.timerId) clearTimeout(s.timerId)
+          schedules.delete(id)
+          res.end(JSON.stringify({ ok: true })); return
+        }
+        // POST /api/stream/schedule — create
+        if (req.method !== 'POST') return next()
+        if (AUTH_ENABLED && !isAuthenticated(req)) {
+          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, type, runAt, intervalMs, intervalLabel, subject, server: serverParam, token: tokenParam } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream' })); return }
+          if (type !== 'once' && type !== 'recurring') { res.statusCode = 400; res.end(JSON.stringify({ error: 'type must be once|recurring' })); return }
+          if (type === 'once' && !runAt) { res.statusCode = 400; res.end(JSON.stringify({ error: 'runAt required for once schedule' })); return }
+          if (type === 'recurring' && (!intervalMs || intervalMs < 60000)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'intervalMs must be ≥ 60000' })); return }
+
+          let natsServer = serverParam; let token = tokenParam
+          if (!natsServer) {
+            const { contexts } = loadNatsContexts()
+            const ctx = contexts[0]
+            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
+          }
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
+
+          const id = newScheduleId()
+          const nextRun = type === 'once' ? runAt : new Date(Date.now() + Number(intervalMs)).toISOString()
+          const schedule = {
+            id, stream, type,
+            runAt: type === 'once' ? runAt : null,
+            intervalMs: type === 'recurring' ? Number(intervalMs) : null,
+            intervalLabel: type === 'recurring' ? (intervalLabel || `${Math.round(Number(intervalMs)/60000)}m`) : null,
+            subject: subject || null,
+            server: natsServer, token,
+            createdAt: new Date().toISOString(),
+            lastRun: null, nextRun,
+            status: 'active', error: null, timerId: null,
+          }
+          schedules.set(id, schedule)
+          armSchedule(schedule)
+          res.statusCode = 201
+          res.end(JSON.stringify({ ok: true, schedule: serializeSchedule(schedule) }))
+        } catch (err) {
+          res.statusCode = 400; res.end(JSON.stringify({ error: err.message }))
         }
       })
 

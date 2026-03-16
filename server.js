@@ -18,7 +18,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import { randomBytes } from 'crypto'
-import { connect, StringCodec } from 'nats'
+import { connect, StringCodec, headers as natsHeaders } from 'nats'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const sc = StringCodec()
@@ -252,6 +252,100 @@ async function handlePath(nc, path) {
   }
 }
 
+// ─── Scheduled purge store ────────────────────────────────────────────────────
+
+const schedules = new Map() // id -> schedule object
+
+function newScheduleId() {
+  return randomBytes(8).toString('hex')
+}
+
+async function executePurge(streamName, subject, natsServer, token) {
+  const nc = await getConn(natsServer, token)
+  const body = subject ? { filter: subject } : {}
+  const resp = await natsRequest(nc, `$JS.API.STREAM.PURGE.${streamName}`, body)
+  if (resp.error) throw new Error(resp.error.description || 'Purge failed')
+  return resp
+}
+
+function computeNextRun(schedule) {
+  if (schedule.type === 'once') return new Date(schedule.runAt)
+  // recurring: next = now + interval
+  return new Date(Date.now() + schedule.intervalMs)
+}
+
+function armSchedule(schedule) {
+  const now = Date.now()
+  const target = new Date(schedule.nextRun).getTime()
+  const delay = Math.max(0, target - now)
+
+  const fire = async () => {
+    const s = schedules.get(schedule.id)
+    if (!s) return
+    s.status = 'running'
+    try {
+      await executePurge(s.stream, s.subject, s.server, s.token)
+      s.lastRun = new Date().toISOString()
+      s.error = null
+      if (s.type === 'once') {
+        s.status = 'done'
+        s.timerId = null
+      } else {
+        s.status = 'active'
+        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
+        s.timerId = setTimeout(fire, s.intervalMs)
+      }
+    } catch (err) {
+      s.lastRun = new Date().toISOString()
+      s.error = err.message
+      if (s.type === 'once') {
+        s.status = 'error'
+        s.timerId = null
+      } else {
+        s.status = 'active'
+        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
+        s.timerId = setTimeout(fire, s.intervalMs)
+      }
+    }
+  }
+
+  schedule.timerId = setTimeout(fire, delay)
+}
+
+function serializeSchedule(s) {
+  // eslint-disable-next-line no-unused-vars
+  const { timerId, token, server: _srv, ...rest } = s
+  return rest
+}
+
+// ─── Scheduled publish store ──────────────────────────────────────────────────
+
+const scheduledPublishes = new Map() // id -> publish object
+
+async function executePublish(natsServer, token, subject, payload, headersArr, msgTtl) {
+  const nc = await getConn(natsServer, token)
+  const js = nc.jetstream()
+
+  let hdr
+  const allHeaders = [...(headersArr || [])]
+  if (msgTtl) allHeaders.push({ key: 'Nats-Msg-Ttl', value: msgTtl })
+  if (allHeaders.length) {
+    hdr = natsHeaders()
+    for (const { key, value } of allHeaders) hdr.append(key, String(value))
+  }
+
+  const data = payload ? sc.encode(payload) : new Uint8Array(0)
+  const opts = hdr ? { headers: hdr } : {}
+  const ack = await js.publish(subject, data, opts)
+  return { stream: ack.stream, seq: ack.seq, duplicate: ack.duplicate }
+}
+
+function serializePublish(p) {
+  // eslint-disable-next-line no-unused-vars
+  const { timerId, token, server: _srv, ...rest } = p
+  return rest
+}
+
 // ─── Static file serving ───────────────────────────────────────────────────────
 
 const MIME = {
@@ -425,6 +519,167 @@ const server = createServer(async (req, res) => {
       res.statusCode = 502
       res.end(JSON.stringify({ error: err.message || 'Stream update failed' }))
     }
+    return
+  }
+
+  // ── Stream publish (immediate or scheduled) ───────────────────────────────
+  if (pathname === '/api/stream/publish' && req.method === 'POST') {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const body = await readJsonBody(req)
+      const { stream, subject, payload = '', headers: headersArr = [], scheduleAt, msgTtl, server: serverParam, token: tokenParam } = body
+      if (!stream || !subject) { res.statusCode = 400; res.end(JSON.stringify({ error: 'stream and subject are required' })); return }
+      const natsServer = serverParam || NATS_URL
+      const token = tokenParam || NATS_TOKEN
+      if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
+
+      if (scheduleAt) {
+        const targetMs = new Date(scheduleAt).getTime()
+        const delay = Math.max(0, targetMs - Date.now())
+        const id = randomBytes(8).toString('hex')
+        const pub = {
+          id, stream, subject, payload, headers: headersArr, msgTtl: msgTtl || null,
+          server: natsServer, token,
+          scheduleAt, createdAt: new Date().toISOString(),
+          status: 'pending', result: null, error: null, timerId: null,
+        }
+        pub.timerId = setTimeout(async () => {
+          const p = scheduledPublishes.get(id)
+          if (!p) return
+          p.status = 'running'
+          try {
+            p.result = await executePublish(p.server, p.token, p.subject, p.payload, p.headers, p.msgTtl)
+            p.status = 'delivered'
+          } catch (err) {
+            p.error = err.message; p.status = 'error'
+          }
+          p.timerId = null
+        }, delay)
+        scheduledPublishes.set(id, pub)
+        res.statusCode = 201
+        res.end(JSON.stringify({ ok: true, scheduled: true, id, scheduleAt }))
+      } else {
+        const result = await executePublish(natsServer, token, subject, payload, headersArr, msgTtl)
+        res.end(JSON.stringify({ ok: true, scheduled: false, ...result }))
+      }
+    } catch (err) {
+      res.statusCode = 502
+      res.end(JSON.stringify({ error: err.message || 'Publish failed' }))
+    }
+    return
+  }
+
+  // ── Scheduled publishes list ───────────────────────────────────────────────
+  if (pathname === '/api/stream/publishes' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json')
+    const stream = url.searchParams.get('stream')
+    const list = [...scheduledPublishes.values()]
+      .filter(p => !stream || p.stream === stream)
+      .map(serializePublish)
+    res.end(JSON.stringify({ publishes: list }))
+    return
+  }
+
+  // ── Cancel scheduled publish ───────────────────────────────────────────────
+  if (pathname.startsWith('/api/stream/publish/') && req.method === 'DELETE') {
+    res.setHeader('Content-Type', 'application/json')
+    const id = pathname.replace('/api/stream/publish/', '')
+    const p = scheduledPublishes.get(id)
+    if (!p) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Publish not found' })); return }
+    if (p.timerId) clearTimeout(p.timerId)
+    scheduledPublishes.delete(id)
+    res.end(JSON.stringify({ ok: true }))
+    return
+  }
+
+  // ── Stream purge (immediate) ──────────────────────────────────────────────
+  if (pathname === '/api/stream/purge' && req.method === 'POST') {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const body = await readJsonBody(req)
+      const { stream, subject, server: serverParam, token: tokenParam } = body
+      if (!stream || typeof stream !== 'string') {
+        res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return
+      }
+      const natsServer = serverParam || NATS_URL
+      const token = tokenParam || NATS_TOKEN
+      if (!natsServer) {
+        res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server and NATS_URL env not set' })); return
+      }
+      const result = await executePurge(stream, subject || null, natsServer, token)
+      res.end(JSON.stringify({ ok: true, purged: result.purged ?? 0 }))
+    } catch (err) {
+      res.statusCode = 502
+      res.end(JSON.stringify({ error: err.message || 'Purge failed' }))
+    }
+    return
+  }
+
+  // ── Schedule list ─────────────────────────────────────────────────────────
+  if (pathname === '/api/stream/schedules' && req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json')
+    const stream = url.searchParams.get('stream')
+    const list = [...schedules.values()]
+      .filter(s => !stream || s.stream === stream)
+      .map(serializeSchedule)
+    res.end(JSON.stringify({ schedules: list }))
+    return
+  }
+
+  // ── Schedule create ───────────────────────────────────────────────────────
+  if (pathname === '/api/stream/schedule' && req.method === 'POST') {
+    res.setHeader('Content-Type', 'application/json')
+    try {
+      const body = await readJsonBody(req)
+      const { stream, type, runAt, intervalMs, intervalLabel, subject, server: serverParam, token: tokenParam } = body
+      if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream' })); return }
+      if (type !== 'once' && type !== 'recurring') { res.statusCode = 400; res.end(JSON.stringify({ error: 'type must be once|recurring' })); return }
+      if (type === 'once' && !runAt) { res.statusCode = 400; res.end(JSON.stringify({ error: 'runAt required for once schedule' })); return }
+      if (type === 'recurring' && (!intervalMs || intervalMs < 60000)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'intervalMs required and must be ≥ 60000 for recurring' })); return }
+
+      const id = newScheduleId()
+      const natsServer = serverParam || NATS_URL
+      const token = tokenParam || NATS_TOKEN
+      const nextRun = type === 'once' ? runAt : new Date(Date.now() + Number(intervalMs)).toISOString()
+
+      const schedule = {
+        id,
+        stream,
+        type,
+        runAt: type === 'once' ? runAt : null,
+        intervalMs: type === 'recurring' ? Number(intervalMs) : null,
+        intervalLabel: type === 'recurring' ? (intervalLabel || `${Math.round(Number(intervalMs)/60000)}m`) : null,
+        subject: subject || null,
+        server: natsServer,
+        token,
+        createdAt: new Date().toISOString(),
+        lastRun: null,
+        nextRun,
+        status: 'active',
+        error: null,
+        timerId: null,
+      }
+
+      schedules.set(id, schedule)
+      armSchedule(schedule)
+      res.statusCode = 201
+      res.end(JSON.stringify({ ok: true, schedule: serializeSchedule(schedule) }))
+    } catch (err) {
+      res.statusCode = 400
+      res.end(JSON.stringify({ error: err.message }))
+    }
+    return
+  }
+
+  // ── Schedule delete ───────────────────────────────────────────────────────
+  if (pathname.startsWith('/api/stream/schedule/') && req.method === 'DELETE') {
+    res.setHeader('Content-Type', 'application/json')
+    const id = pathname.split('/').pop()
+    const s = schedules.get(id)
+    if (!s) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Schedule not found' })); return }
+    if (s.timerId) clearTimeout(s.timerId)
+    schedules.delete(id)
+    res.end(JSON.stringify({ ok: true }))
     return
   }
 
