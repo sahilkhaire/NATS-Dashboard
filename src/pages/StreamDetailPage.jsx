@@ -110,11 +110,184 @@ function PropertyRow({ label, value, displayValue, editable, inputType = 'text',
   )
 }
 
+// ─── Properties tab helpers ───────────────────────────────────────────────────
+
+function BoolBadge({ value, onLabel = 'Enabled', offLabel = 'Disabled', warn = false }) {
+  if (value) return <span className={`text-xs font-medium ${warn ? 'text-nats-warn' : 'text-nats-ok'}`}>{onLabel}</span>
+  return <span className="text-xs text-gray-500">{offLabel}</span>
+}
+
+function SectionBox({ title, children, badge }) {
+  return (
+    <div className="rounded-lg border border-nats-border overflow-hidden">
+      <div className="px-4 py-2.5 bg-nats-card border-b border-nats-border flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</span>
+        {badge}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function KVRow({ label, children }) {
+  return (
+    <div className="flex items-start justify-between py-3 px-4 border-b border-nats-border last:border-0 hover:bg-nats-border/10 transition-colors">
+      <div className="text-sm text-gray-400 w-52 shrink-0 pt-0.5">{label}</div>
+      <div className="flex-1 min-w-0 text-sm font-mono text-white">{children}</div>
+    </div>
+  )
+}
+
+function MetadataSection({ metadata, onSave }) {
+  const [pairs, setPairs] = useState(() => Object.entries(metadata || {}))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [dirty, setDirty] = useState(false)
+
+  const update = (i, field, val) => {
+    setPairs(prev => { const next = [...prev]; next[i] = [...next[i]]; next[i][field === 'k' ? 0 : 1] = val; return next })
+    setDirty(true)
+  }
+  const addRow = () => { setPairs(prev => [...prev, ['', '']]); setDirty(true) }
+  const removeRow = (i) => { setPairs(prev => prev.filter((_, idx) => idx !== i)); setDirty(true) }
+
+  const handleSave = async () => {
+    setSaving(true); setError('')
+    try {
+      const obj = Object.fromEntries(pairs.filter(([k]) => k.trim()).map(([k, v]) => [k.trim(), v]))
+      await onSave(obj)
+      setDirty(false)
+    } catch (err) { setError(err.message) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <SectionBox title="Metadata" badge={dirty && <span className="text-xs text-nats-warn px-1.5 py-0.5 rounded bg-nats-warn/10 border border-nats-warn/20">Unsaved</span>}>
+      <div className="p-4 space-y-2">
+        {pairs.length === 0 && !dirty && (
+          <p className="text-xs text-gray-500">No metadata. Click Add to create key-value pairs.</p>
+        )}
+        {pairs.map(([k, v], i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <input value={k} onChange={e => update(i, 'k', e.target.value)} placeholder="Key"
+              className="w-36 px-2 py-1 text-xs rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+            <span className="text-gray-600 text-xs">=</span>
+            <input value={v} onChange={e => update(i, 'v', e.target.value)} placeholder="Value"
+              className="flex-1 px-2 py-1 text-xs rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+            <button onClick={() => removeRow(i)} className="p-1 rounded hover:bg-nats-error/20 text-gray-500 hover:text-nats-error">
+              <XIcon size={12} />
+            </button>
+          </div>
+        ))}
+        {error && <p className="text-xs text-nats-error">{error}</p>}
+        <div className="flex gap-2 pt-1">
+          <button onClick={addRow} className="flex items-center gap-1 px-2.5 py-1 rounded border border-nats-border text-xs text-gray-400 hover:text-nats-accent hover:border-nats-accent/50 transition-colors">
+            <Plus size={11} /> Add
+          </button>
+          {dirty && (
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 px-2.5 py-1 rounded border border-nats-ok/40 text-nats-ok text-xs hover:bg-nats-ok/10 disabled:opacity-50 transition-colors">
+              <Check size={11} /> {saving ? 'Saving…' : 'Save'}
+            </button>
+          )}
+        </div>
+      </div>
+    </SectionBox>
+  )
+}
+
+function RoutingSection({ cfg, onUpdate, streamName }) {
+  const st = cfg.subject_transform || {}
+  const rp = cfg.republish || {}
+
+  const [stSrc, setStSrc] = useState(st.src ?? '')
+  const [stDest, setStDest] = useState(st.dest ?? '')
+  const [rpSrc, setRpSrc] = useState(rp.src ?? '')
+  const [rpDst, setRpDst] = useState(rp.dst ?? '')
+  const [rpHdrs, setRpHdrs] = useState(rp.headers_only ?? false)
+  const [saving, setSaving] = useState(null)
+  const [error, setError] = useState('')
+
+  const saveTransform = async () => {
+    setSaving('transform'); setError('')
+    try {
+      const val = (stSrc.trim() || stDest.trim()) ? { src: stSrc.trim() || undefined, dest: stDest.trim() } : null
+      await onUpdate(streamName, { subject_transform: val })
+    } catch (err) { setError(err.message) } finally { setSaving(null) }
+  }
+
+  const saveRepublish = async () => {
+    setSaving('republish'); setError('')
+    try {
+      const val = rpDst.trim() ? { src: rpSrc.trim() || undefined, dst: rpDst.trim(), headers_only: rpHdrs } : null
+      await onUpdate(streamName, { republish: val })
+    } catch (err) { setError(err.message) } finally { setSaving(null) }
+  }
+
+  const inputCls = "w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono"
+
+  return (
+    <SectionBox title="Subject Transform & Republish">
+      <div className="p-4 space-y-5">
+        {/* Subject Transform */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Subject Transform</div>
+          <p className="text-xs text-gray-500 mb-2">Rewrite matching subjects before storing messages.</p>
+          <div className="flex gap-2 items-center">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Source pattern (empty = all)</label>
+              <input value={stSrc} onChange={e => setStSrc(e.target.value)} placeholder="e.g. foo.>" className={inputCls} />
+            </div>
+            <span className="text-gray-600 mt-5">→</span>
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Destination</label>
+              <input value={stDest} onChange={e => setStDest(e.target.value)} placeholder="e.g. bar.>" className={inputCls} />
+            </div>
+            <button onClick={saveTransform} disabled={saving === 'transform'} className="mt-5 px-3 py-1.5 rounded border border-nats-border text-xs text-gray-400 hover:text-nats-accent hover:border-nats-accent/50 disabled:opacity-50 transition-colors whitespace-nowrap">
+              {saving === 'transform' ? 'Saving…' : 'Apply'}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-nats-border" />
+
+        {/* Republish */}
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Republish</div>
+          <p className="text-xs text-gray-500 mb-2">Immediately republish stored messages to another subject.</p>
+          <div className="flex gap-2 items-center">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Source filter (empty = all)</label>
+              <input value={rpSrc} onChange={e => setRpSrc(e.target.value)} placeholder="e.g. orders.>" className={inputCls} />
+            </div>
+            <span className="text-gray-600 mt-5">→</span>
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Destination subject</label>
+              <input value={rpDst} onChange={e => setRpDst(e.target.value)} placeholder="e.g. pub.orders.>" className={inputCls} />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={rpHdrs} onChange={e => setRpHdrs(e.target.checked)} className="accent-nats-accent" />
+              Headers only (don't republish payload)
+            </label>
+            <button onClick={saveRepublish} disabled={saving === 'republish'} className="px-3 py-1.5 rounded border border-nats-border text-xs text-gray-400 hover:text-nats-accent hover:border-nats-accent/50 disabled:opacity-50 transition-colors">
+              {saving === 'republish' ? 'Saving…' : 'Apply'}
+            </button>
+          </div>
+        </div>
+
+        {error && <p className="text-xs text-nats-error">{error}</p>}
+      </div>
+    </SectionBox>
+  )
+}
+
 // ─── Properties tab ───────────────────────────────────────────────────────────
 
 function PropertiesTab({ stream, onUpdate }) {
   const cfg = stream.config || {}
   const state = stream.state || {}
+  const cl = cfg.consumer_limits || {}
 
   const makeUpdater = (field, transform) => async (val) => {
     const v = transform ? transform(val) : val
@@ -122,40 +295,58 @@ function PropertiesTab({ stream, onUpdate }) {
     await onUpdate(stream.name, { [field]: v })
   }
 
+  const makeNestedUpdater = (field, key, transform) => async (val) => {
+    const v = transform ? transform(val) : val
+    if (v === null || v === undefined) throw new Error('Invalid value')
+    await onUpdate(stream.name, { [field]: { ...(cfg[field] || {}), [key]: v } })
+  }
+
+  const unlim = (v) => (v == null || v <= 0) ? 'Unlimited' : v.toLocaleString()
+
   const sections = [
     {
       title: 'Identity',
       rows: [
-        { label: 'Name', value: cfg.name, editable: false },
-        { label: 'Description', value: cfg.description, editable: true, onSave: makeUpdater('description') },
-        { label: 'Subjects', value: (cfg.subjects || []).join(', '),
-          editable: true,
+        { label: 'Name', value: cfg.name ?? '', editable: false },
+        { label: 'Description', value: cfg.description ?? '', editable: true, onSave: makeUpdater('description') },
+        { label: 'Subjects',
+          value: (cfg.subjects || []).join(', '),
+          displayValue: cfg.mirror
+            ? <span className="text-gray-500 text-xs italic">Managed by mirror — not configurable</span>
+            : (cfg.subjects?.length
+                ? cfg.subjects.map(s => <span key={s} className="inline-block px-1.5 py-0.5 rounded bg-nats-border text-gray-200 text-xs font-mono mr-1 mb-0.5">{s}</span>)
+                : <span className="text-gray-600">—</span>),
+          editable: !cfg.mirror,
           onSave: async (val) => {
             const subjects = val.trim() ? val.split(',').map(s => s.trim()).filter(Boolean) : []
             await onUpdate(stream.name, { subjects })
-          }
+          },
         },
       ],
     },
     {
       title: 'Limits',
       rows: [
-        { label: 'Max Messages', value: cfg.max_msgs?.toString() ?? '-1',
-          displayValue: cfg.max_msgs == null || cfg.max_msgs <= 0 ? 'Unlimited' : cfg.max_msgs.toLocaleString(),
+        { label: 'Max Messages',
+          value: cfg.max_msgs?.toString() ?? '-1',
+          displayValue: unlim(cfg.max_msgs),
           editable: true, inputType: 'number',
           onSave: makeUpdater('max_msgs', v => parseInt(v, 10) || -1),
         },
-        { label: 'Max Bytes', value: cfg.max_bytes?.toString() ?? '-1',
-          displayValue: cfg.max_bytes == null || cfg.max_bytes <= 0 ? 'Unlimited' : formatBytes(cfg.max_bytes),
+        { label: 'Max Bytes',
+          value: cfg.max_bytes?.toString() ?? '-1',
+          displayValue: (cfg.max_bytes == null || cfg.max_bytes <= 0) ? 'Unlimited' : formatBytes(cfg.max_bytes),
           editable: true, inputType: 'number',
           onSave: makeUpdater('max_bytes', v => parseInt(v, 10) || -1),
         },
-        { label: 'Max Message Size', value: cfg.max_msg_size?.toString() ?? '-1',
-          displayValue: cfg.max_msg_size == null || cfg.max_msg_size <= 0 ? 'Unlimited' : formatBytes(cfg.max_msg_size),
+        { label: 'Max Message Size',
+          value: cfg.max_msg_size?.toString() ?? '-1',
+          displayValue: (cfg.max_msg_size == null || cfg.max_msg_size <= 0) ? 'Unlimited' : formatBytes(cfg.max_msg_size),
           editable: true, inputType: 'number',
           onSave: makeUpdater('max_msg_size', v => parseInt(v, 10) || -1),
         },
-        { label: 'Max Age', value: nsToDuration(cfg.max_age),
+        { label: 'Max Age',
+          value: nsToDuration(cfg.max_age),
           displayValue: !cfg.max_age || cfg.max_age === 0 ? 'Unlimited' : nsToDuration(cfg.max_age),
           editable: true,
           onSave: makeUpdater('max_age', v => {
@@ -164,13 +355,15 @@ function PropertiesTab({ stream, onUpdate }) {
             return ns
           }),
         },
-        { label: 'Max Consumers', value: cfg.max_consumers?.toString() ?? '-1',
-          displayValue: cfg.max_consumers == null || cfg.max_consumers <= 0 ? 'Unlimited' : cfg.max_consumers.toLocaleString(),
+        { label: 'Max Consumers',
+          value: cfg.max_consumers?.toString() ?? '-1',
+          displayValue: unlim(cfg.max_consumers),
           editable: true, inputType: 'number',
           onSave: makeUpdater('max_consumers', v => parseInt(v, 10) || -1),
         },
-        { label: 'Max Msgs per Subject', value: cfg.max_msgs_per_subject?.toString() ?? '-1',
-          displayValue: cfg.max_msgs_per_subject == null || cfg.max_msgs_per_subject <= 0 ? 'Unlimited' : cfg.max_msgs_per_subject.toLocaleString(),
+        { label: 'Max Msgs per Subject',
+          value: cfg.max_msgs_per_subject?.toString() ?? '-1',
+          displayValue: unlim(cfg.max_msgs_per_subject),
           editable: true, inputType: 'number',
           onSave: makeUpdater('max_msgs_per_subject', v => parseInt(v, 10) || -1),
         },
@@ -179,9 +372,14 @@ function PropertiesTab({ stream, onUpdate }) {
     {
       title: 'Storage & Retention',
       rows: [
-        { label: 'Storage Type', value: cfg.storage ?? 'file', editable: true,
-          options: ['file', 'memory'],
-          onSave: makeUpdater('storage'),
+        { label: 'Storage Type', value: cfg.storage ?? 'file', editable: false },
+        { label: 'Compression',
+          value: cfg.compression || 'none',
+          displayValue: cfg.compression && cfg.compression !== 'none'
+            ? <span className="text-nats-accent text-xs font-medium uppercase">{cfg.compression}</span>
+            : 'None',
+          editable: true, options: ['none', 's2'],
+          onSave: makeUpdater('compression'),
         },
         { label: 'Retention', value: cfg.retention ?? 'limits', editable: true,
           options: ['limits', 'interest', 'workqueue'],
@@ -191,14 +389,17 @@ function PropertiesTab({ stream, onUpdate }) {
           options: ['old', 'new'],
           onSave: makeUpdater('discard'),
         },
-        { label: 'Discard New Per Subject', value: cfg.discard_new_per_subject ? 'true' : 'false',
-          editable: true,
-          options: ['false', 'true'],
+        { label: 'Discard New Per Subject',
+          value: cfg.discard_new_per_subject ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.discard_new_per_subject} onLabel="Yes" offLabel="No" />,
+          editable: true, options: ['false', 'true'],
           onSave: makeUpdater('discard_new_per_subject', v => v === 'true'),
         },
         { label: 'Replicas', value: cfg.num_replicas?.toString() ?? '1', editable: false },
-        { label: 'Duplicate Window', value: nsToDuration(cfg.duplicate_window),
-          displayValue: !cfg.duplicate_window ? 'Default' : nsToDuration(cfg.duplicate_window),
+        { label: 'First Sequence', value: (cfg.first_seq || 1).toLocaleString(), editable: false },
+        { label: 'Duplicate Window',
+          value: nsToDuration(cfg.duplicate_window),
+          displayValue: !cfg.duplicate_window ? 'Default (2m)' : nsToDuration(cfg.duplicate_window),
           editable: true,
           onSave: makeUpdater('duplicate_window', v => {
             const ns = parseDurationToNs(v)
@@ -206,23 +407,134 @@ function PropertiesTab({ stream, onUpdate }) {
             return ns
           }),
         },
-        { label: 'Allow Msg TTL',
-          value: cfg.allow_msg_ttl ? 'true' : 'false',
-          displayValue: cfg.allow_msg_ttl
-            ? <span className="text-nats-ok text-xs font-medium">Enabled — publishers may set per-message Nats-Msg-Ttl header</span>
-            : <span className="text-gray-500 text-xs">Disabled</span>,
-          editable: true,
+      ],
+    },
+    {
+      title: 'Access & Behavior',
+      rows: [
+        { label: 'Sealed',
+          value: cfg.sealed ? 'true' : 'false',
+          displayValue: cfg.sealed
+            ? <span className="text-nats-error text-xs font-medium">Sealed — no messages, deletes, or updates allowed</span>
+            : <span className="text-gray-500 text-xs">No</span>,
+          editable: !cfg.sealed,
           options: ['false', 'true'],
-          onSave: makeUpdater('allow_msg_ttl', v => v === 'true'),
+          onSave: makeUpdater('sealed', v => v === 'true'),
+        },
+        { label: 'Deny Delete',
+          value: cfg.deny_delete ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.deny_delete} onLabel="Yes — API message delete blocked" offLabel="No" warn />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('deny_delete', v => v === 'true'),
+        },
+        { label: 'Deny Purge',
+          value: cfg.deny_purge ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.deny_purge} onLabel="Yes — API purge blocked" offLabel="No" warn />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('deny_purge', v => v === 'true'),
+        },
+        { label: 'No Ack',
+          value: cfg.no_ack ? 'true' : 'false',
+          displayValue: cfg.no_ack
+            ? <span className="text-nats-warn text-xs font-medium">Enabled — publish acks disabled (use core NATS publish)</span>
+            : <span className="text-gray-500 text-xs">Disabled</span>,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('no_ack', v => v === 'true'),
+        },
+        { label: 'Allow Rollup Headers',
+          value: cfg.allow_rollup_hdrs ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.allow_rollup_hdrs} />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('allow_rollup_hdrs', v => v === 'true'),
         },
         { label: 'Allow Direct Get',
           value: cfg.allow_direct ? 'true' : 'false',
-          displayValue: cfg.allow_direct
-            ? <span className="text-nats-ok text-xs font-medium">Enabled</span>
-            : <span className="text-gray-500 text-xs">Disabled</span>,
-          editable: true,
-          options: ['false', 'true'],
+          displayValue: <BoolBadge value={cfg.allow_direct} />,
+          editable: true, options: ['false', 'true'],
           onSave: makeUpdater('allow_direct', v => v === 'true'),
+        },
+        { label: 'Mirror Direct Get',
+          value: cfg.mirror_direct ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.mirror_direct} />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('mirror_direct', v => v === 'true'),
+        },
+      ],
+    },
+    {
+      title: 'Features (2.11+)',
+      rows: [
+        { label: 'Allow Msg TTL',
+          value: cfg.allow_msg_ttl ? 'true' : 'false',
+          displayValue: cfg.allow_msg_ttl
+            ? <span className="text-nats-ok text-xs font-medium">Enabled — publishers may set Nats-Msg-Ttl header</span>
+            : <span className="text-gray-500 text-xs">Disabled</span>,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('allow_msg_ttl', v => v === 'true'),
+        },
+        { label: 'Subject Delete Marker TTL',
+          value: nsToDuration(cfg.subject_delete_marker_ttl),
+          displayValue: !cfg.subject_delete_marker_ttl
+            ? <span className="text-gray-500 text-xs">Disabled</span>
+            : nsToDuration(cfg.subject_delete_marker_ttl),
+          editable: true,
+          onSave: makeUpdater('subject_delete_marker_ttl', v => {
+            if (!v || v === '0') return 0
+            const ns = parseDurationToNs(v)
+            if (ns === null) throw new Error('Invalid duration (e.g. 5m, 1h)')
+            return ns
+          }),
+        },
+        { label: 'Allow Msg Counter',
+          value: cfg.allow_msg_counter ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.allow_msg_counter} />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('allow_msg_counter', v => v === 'true'),
+        },
+        { label: 'Allow Atomic Publish',
+          value: cfg.allow_atomic ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.allow_atomic} />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('allow_atomic', v => v === 'true'),
+        },
+        { label: 'Allow Msg Schedules',
+          value: cfg.allow_msg_schedules ? 'true' : 'false',
+          displayValue: <BoolBadge value={cfg.allow_msg_schedules} />,
+          editable: true, options: ['false', 'true'],
+          onSave: makeUpdater('allow_msg_schedules', v => v === 'true'),
+        },
+        { label: 'Persist Mode',
+          value: cfg.persist_mode || 'none',
+          editable: true, options: ['none', 'no_fallthrough'],
+          onSave: makeUpdater('persist_mode'),
+        },
+      ],
+    },
+    {
+      title: 'Consumer Limits',
+      rows: [
+        { label: 'Max Ack Pending',
+          value: cl.max_ack_pending?.toString() ?? '',
+          displayValue: unlim(cl.max_ack_pending),
+          editable: true, inputType: 'number',
+          onSave: makeNestedUpdater('consumer_limits', 'max_ack_pending', v => parseInt(v, 10) || -1),
+        },
+        { label: 'Max Deliver',
+          value: cl.max_deliver?.toString() ?? '',
+          displayValue: unlim(cl.max_deliver),
+          editable: true, inputType: 'number',
+          onSave: makeNestedUpdater('consumer_limits', 'max_deliver', v => parseInt(v, 10) || -1),
+        },
+        { label: 'Inactive Threshold',
+          value: nsToDuration(cl.inactive_threshold),
+          displayValue: !cl.inactive_threshold ? 'Default' : nsToDuration(cl.inactive_threshold),
+          editable: true,
+          onSave: makeNestedUpdater('consumer_limits', 'inactive_threshold', v => {
+            if (!v || v === '0') return 0
+            const ns = parseDurationToNs(v)
+            if (ns === null) throw new Error('Invalid duration (e.g. 5m, 1h)')
+            return ns
+          }),
         },
       ],
     },
@@ -232,8 +544,12 @@ function PropertiesTab({ stream, onUpdate }) {
         { label: 'Messages', value: state.messages?.toLocaleString() ?? '0', editable: false },
         { label: 'Bytes', value: formatBytes(state.bytes), editable: false },
         { label: 'Consumer Count', value: state.consumer_count?.toString() ?? '0', editable: false },
+        { label: 'Num Subjects', value: state.num_subjects?.toLocaleString() ?? '—', editable: false },
+        { label: 'Num Deleted', value: state.num_deleted?.toLocaleString() ?? '0', editable: false },
         { label: 'First Sequence', value: state.first_seq?.toLocaleString() ?? '—', editable: false },
         { label: 'Last Sequence', value: state.last_seq?.toLocaleString() ?? '—', editable: false },
+        { label: 'First Message', value: state.first_ts ? new Date(state.first_ts).toLocaleString() : '—', editable: false },
+        { label: 'Last Message', value: state.last_ts ? new Date(state.last_ts).toLocaleString() : '—', editable: false },
         { label: 'Created', value: stream.created ? new Date(stream.created).toLocaleString() : '—', editable: false },
       ],
     },
@@ -251,6 +567,57 @@ function PropertiesTab({ stream, onUpdate }) {
           ))}
         </div>
       ))}
+
+      {/* Mirror config */}
+      {cfg.mirror && (
+        <SectionBox title="Mirror Source">
+          <KVRow label="Mirror Stream">{cfg.mirror.name ?? '—'}</KVRow>
+          {cfg.mirror.filter_subject && <KVRow label="Filter Subject">{cfg.mirror.filter_subject}</KVRow>}
+          {cfg.mirror.opt_start_seq != null && <KVRow label="Start Sequence">{cfg.mirror.opt_start_seq.toLocaleString()}</KVRow>}
+          {cfg.mirror.opt_start_time && <KVRow label="Start Time">{new Date(cfg.mirror.opt_start_time).toLocaleString()}</KVRow>}
+          {cfg.mirror.external?.api && <KVRow label="External API">{cfg.mirror.external.api}</KVRow>}
+          {cfg.mirror.external?.deliver && <KVRow label="External Deliver">{cfg.mirror.external.deliver}</KVRow>}
+          <KVRow label=""><span className="text-xs text-gray-500">Mirror configuration is set at creation and cannot be changed.</span></KVRow>
+        </SectionBox>
+      )}
+
+      {/* Sources */}
+      {(cfg.sources || []).length > 0 && (
+        <SectionBox title={`Sources (${cfg.sources.length})`}>
+          {cfg.sources.map((src, i) => (
+            <div key={i} className="px-4 py-3 border-b border-nats-border last:border-0 space-y-1">
+              <div className="font-mono text-sm text-nats-accent font-medium">{src.name}</div>
+              {src.filter_subject && <div className="text-xs text-gray-400">Filter: <span className="font-mono text-gray-300">{src.filter_subject}</span></div>}
+              {src.opt_start_seq != null && <div className="text-xs text-gray-400">Start seq: <span className="font-mono text-gray-300">{src.opt_start_seq.toLocaleString()}</span></div>}
+              {src.external?.api && <div className="text-xs text-gray-400">External: <span className="font-mono text-gray-300">{src.external.api}</span></div>}
+            </div>
+          ))}
+        </SectionBox>
+      )}
+
+      {/* Placement */}
+      {cfg.placement && (cfg.placement.cluster || (cfg.placement.tags || []).length > 0) && (
+        <SectionBox title="Placement">
+          {cfg.placement.cluster && <KVRow label="Cluster">{cfg.placement.cluster}</KVRow>}
+          {(cfg.placement.tags || []).length > 0 && (
+            <KVRow label="Tags">
+              {cfg.placement.tags.map(t => (
+                <span key={t} className="inline-block px-1.5 py-0.5 rounded bg-nats-border text-gray-200 text-xs font-mono mr-1">{t}</span>
+              ))}
+            </KVRow>
+          )}
+          <KVRow label=""><span className="text-xs text-gray-500">Placement is set at creation and cannot be changed.</span></KVRow>
+        </SectionBox>
+      )}
+
+      {/* Subject Transform + Republish */}
+      <RoutingSection cfg={cfg} onUpdate={onUpdate} streamName={stream.name} />
+
+      {/* Metadata */}
+      <MetadataSection
+        metadata={cfg.metadata || {}}
+        onSave={async (metadata) => onUpdate(stream.name, { metadata })}
+      />
     </div>
   )
 }
