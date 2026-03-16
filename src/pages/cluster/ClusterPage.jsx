@@ -1,7 +1,7 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { formatBytes } from '../utils/byteFormatter'
-import { AlertBanner } from '../components/AlertBanner'
-import { NatsProtocolNotice } from '../components/NatsProtocolNotice'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { formatBytes } from '../../utils/byteFormatter'
+import { AlertBanner } from '../../components/AlertBanner'
+import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 
 export function ClusterPage() {
   const { data, error } = useNatsPolling('/routez', 5000)

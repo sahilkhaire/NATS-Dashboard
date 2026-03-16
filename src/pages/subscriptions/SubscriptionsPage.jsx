@@ -1,7 +1,7 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { MetricCard } from '../components/MetricCard'
-import { AlertBanner } from '../components/AlertBanner'
-import { NatsProtocolNotice } from '../components/NatsProtocolNotice'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { MetricCard } from '../../components/MetricCard'
+import { AlertBanner } from '../../components/AlertBanner'
+import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 
 export function SubscriptionsPage() {
   const { data, error } = useNatsPolling('/subsz', 5000)

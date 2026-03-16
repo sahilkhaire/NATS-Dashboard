@@ -1,6 +1,6 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { AlertBanner } from '../components/AlertBanner'
-import { NatsProtocolNotice } from '../components/NatsProtocolNotice'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { AlertBanner } from '../../components/AlertBanner'
+import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 
 function ConnectionsTable({ connections, title, icon: Icon }) {

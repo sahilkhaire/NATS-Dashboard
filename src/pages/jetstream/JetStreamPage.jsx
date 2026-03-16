@@ -1,8 +1,8 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { MetricCard } from '../components/MetricCard'
-import { GaugeBar } from '../components/GaugeBar'
-import { formatBytes } from '../utils/byteFormatter'
-import { AlertBanner } from '../components/AlertBanner'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { MetricCard } from '../../components/MetricCard'
+import { GaugeBar } from '../../components/GaugeBar'
+import { formatBytes } from '../../utils/byteFormatter'
+import { AlertBanner } from '../../components/AlertBanner'
 
 export function JetStreamPage() {
   const { data, error } = useNatsPolling('/jsz?accounts=true', 3000)

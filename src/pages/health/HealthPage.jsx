@@ -1,6 +1,6 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { StatusBadge } from '../components/StatusBadge'
-import { AlertBanner } from '../components/AlertBanner'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { StatusBadge } from '../../components/StatusBadge'
+import { AlertBanner } from '../../components/AlertBanner'
 
 export function HealthPage() {
   const { data, error, lastFetch } = useNatsPolling('/healthz', 5000)

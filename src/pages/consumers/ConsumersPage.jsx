@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { AlertBanner } from '../components/AlertBanner'
-import { RefreshSelector } from '../components/RefreshSelector'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { AlertBanner } from '../../components/AlertBanner'
+import { RefreshSelector } from '../../components/RefreshSelector'
 
 export function ConsumersPage() {
   const [refreshInterval, setRefreshInterval] = useState(5000)

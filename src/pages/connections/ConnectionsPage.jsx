@@ -1,9 +1,9 @@
 import { useState, useMemo, Fragment } from 'react'
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { AlertBanner } from '../components/AlertBanner'
-import { StatusBadge } from '../components/StatusBadge'
-import { NatsProtocolNotice } from '../components/NatsProtocolNotice'
-import { formatBytes } from '../utils/byteFormatter'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { AlertBanner } from '../../components/AlertBanner'
+import { StatusBadge } from '../../components/StatusBadge'
+import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
+import { formatBytes } from '../../utils/byteFormatter'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 export function ConnectionsPage() {

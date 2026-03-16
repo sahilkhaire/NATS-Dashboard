@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.js",
+    "start": "node server/index.js",
     "docker:build": "docker build -t sahilkhaire/nats-dashboard:$(node -p \"require('./package.json').version\") -t sahilkhaire/nats-dashboard:latest .",
     "docker:push": "npm run docker:build && docker push sahilkhaire/nats-dashboard:$(node -p \"require('./package.json').version\") && docker push sahilkhaire/nats-dashboard:latest"
   },

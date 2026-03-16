@@ -1,6 +1,6 @@
-import { useNatsPolling } from '../hooks/useNatsPolling'
-import { AlertBanner } from '../components/AlertBanner'
-import { NatsProtocolNotice } from '../components/NatsProtocolNotice'
+import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { AlertBanner } from '../../components/AlertBanner'
+import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 
 export function AccountsPage() {
   const { data, error } = useNatsPolling('/accountz', 10000)

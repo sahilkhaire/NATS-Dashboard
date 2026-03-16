@@ -18,10 +18,10 @@ COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY server.js ./
+COPY server/ ./server/
 
 EXPOSE 3000
 
 ENV PORT=3000
 
-CMD ["node", "server.js"]
+CMD ["node", "server/index.js"]

@@ -1,16 +1,30 @@
+/**
+ * Vite development-server plugin for NATS Dashboard.
+ *
+ * Provides the same /api/* endpoints as server/index.js but:
+ *  - Loads NATS contexts from ~/.config/nats/ instead of env vars
+ *  - Runs inside the Vite dev server process
+ *  - Shares business logic with the production server via server/services/
+ */
+
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { randomBytes } from 'crypto'
-import { connect, StringCodec, headers as natsHeaders } from 'nats'
 
-const sc = StringCodec()
+import { getConn, natsRequest, handlePath } from './server/services/nats.js'
+import { fetchStreamMessages }              from './server/services/jetstream.js'
+import { schedules, createSchedule, serializeSchedule } from './server/services/schedule.js'
+import { scheduledPublishes, executePublish, schedulePublish, serializePublish } from './server/services/publish.js'
+import { readJsonBody }                     from './server/utils/http.js'
+
+// ─── Dev-only auth (mirrors server/middleware/auth.js logic inline) ───────────
 
 const DASHBOARD_USERNAME = process.env.DASHBOARD_USERNAME || ''
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || ''
-const AUTH_ENABLED = !!(DASHBOARD_USERNAME && DASHBOARD_PASSWORD)
-const SESSION_COOKIE = 'nats-dashboard-session'
-const SESSION_MAX_AGE = 86400
-const sessions = new Map()
+const AUTH_ENABLED       = !!(DASHBOARD_USERNAME && DASHBOARD_PASSWORD)
+const SESSION_COOKIE     = 'nats-dashboard-session'
+const SESSION_MAX_AGE    = 86400
+const sessions           = new Map()
 
 function getSessionId(req) {
   const cookie = req.headers.cookie || ''
@@ -23,10 +37,7 @@ function isAuthenticated(req) {
   const sid = getSessionId(req)
   if (!sid) return false
   const s = sessions.get(sid)
-  if (!s || s.exp < Date.now()) {
-    if (s) sessions.delete(sid)
-    return false
-  }
+  if (!s || s.exp < Date.now()) { if (s) sessions.delete(sid); return false }
   return true
 }
 
@@ -36,11 +47,19 @@ function createSession() {
   return sid
 }
 
-// ─── Context loading ──────────────────────────────────────────────────────────
+function guardAuth(req, res) {
+  if (!AUTH_ENABLED || isAuthenticated(req)) return false
+  res.statusCode = 401
+  res.setHeader('Content-Type', 'application/json')
+  res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false }))
+  return true
+}
+
+// ─── Dev context loader (reads ~/.config/nats/) ───────────────────────────────
 
 function loadNatsContexts() {
-  const home = process.env.HOME || process.env.USERPROFILE
-  const configDir = process.env.XDG_CONFIG_HOME
+  const home       = process.env.HOME || process.env.USERPROFILE
+  const configDir  = process.env.XDG_CONFIG_HOME
     ? join(process.env.XDG_CONFIG_HOME, 'nats')
     : join(home, '.config', 'nats')
   const contextDir = join(configDir, 'context')
@@ -59,378 +78,23 @@ function loadNatsContexts() {
       if (!ctx.url) continue
       contexts.push({
         name,
-        description: ctx.description || name,
-        url: ctx.url,
-        monitoringUrl: ctx.url,   // NATS url — we use port 4222 directly
-        token: ctx.token || ctx.password || null,
+        description:   ctx.description || name,
+        url:           ctx.url,
+        monitoringUrl: ctx.url,
+        token:         ctx.token || ctx.password || null,
       })
-    } catch { /* skip */ }
+    } catch { /* skip malformed context */ }
   }
-
   return { contexts, current }
 }
 
-// ─── NATS connection pool ─────────────────────────────────────────────────────
-
-const pool = new Map()
-
-async function getConn(natsUrl, token) {
-  // Normalize to nats:// — accept http://host:8222 input too
-  let url = natsUrl
-  if (url.startsWith('http://')) {
-    const u = new URL(url)
-    url = `nats://${u.hostname}:4222`
-  } else if (url.startsWith('https://')) {
-    const u = new URL(url)
-    url = `nats://${u.hostname}:4222`
-  }
-
-  const key = `${url}::${token || ''}`
-  let nc = pool.get(key)
-  if (nc && !nc.isClosed()) return nc
-
-  const opts = { servers: url, reconnect: true, reconnectTimeWait: 2000, maxReconnectAttempts: 5 }
-  if (token) opts.token = token
-
-  nc = await connect(opts)
-  pool.set(key, nc)
-  nc.closed().then(() => pool.delete(key))
-  return nc
-}
-
-async function natsRequest(nc, subject, data = {}) {
-  const msg = await nc.request(subject, sc.encode(JSON.stringify(data)), { timeout: 10000 })
-  return JSON.parse(sc.decode(msg.data))
-}
-
-// ─── Monitoring data handlers ─────────────────────────────────────────────────
-
-async function handleVarz(nc) {
-  const info = nc.info || {}
-  return {
-    server_id:        info.server_id,
-    server_name:      info.server_name || info.name,
-    version:          info.version,
-    go:               info.go,
-    host:             info.host,
-    port:             info.port,
-    auth_required:    info.auth_required,
-    tls_required:     info.tls_required,
-    max_payload:      info.max_payload,
-    max_connections:  info.max_connections || 65536,
-    jetstream:        info.jetstream,
-    uptime:           null,
-    connections:      null,
-    slow_consumers:   null,
-    subscriptions:    null,
-    in_msgs:          null,
-    out_msgs:         null,
-    in_bytes:         null,
-    out_bytes:        null,
-    cpu:              null,
-    mem:              null,
-    now:              new Date().toISOString(),
-    _via:             'nats_protocol',
-    _note:            'Connected via NATS protocol (port 4222). CPU/mem/connection metrics require HTTP monitoring port 8222.',
-  }
-}
-
-async function handleHealthz(nc) {
-  if (!nc.isClosed()) return { status: 'ok' }
-  return { status: 'unavailable' }
-}
-
-async function handleJsz(nc, options = {}) {
-  const apiInfo = await natsRequest(nc, '$JS.API.INFO')
-  if (apiInfo.error) throw new Error(apiInfo.error.description || 'JetStream API error')
-
-  const result = {
-    server_id:            nc.info?.server_id,
-    now:                  new Date().toISOString(),
-    domain:               apiInfo.domain,
-    config: {
-      max_memory:         apiInfo.limits?.max_memory,
-      max_storage:        apiInfo.limits?.max_store,
-    },
-    memory:               apiInfo.memory,
-    storage:              apiInfo.storage,
-    reserved_memory:      apiInfo.reserved_memory,
-    reserved_storage:     apiInfo.reserved_storage,
-    accounts:             1,
-    ha_assets:            apiInfo.ha_assets,
-    api:                  apiInfo.api,
-    total_streams:        apiInfo.streams,
-    total_consumers:      apiInfo.consumers,
-    total_messages:       apiInfo.messages,
-    total_message_bytes:  apiInfo.bytes,
-    _via:                 'nats_protocol',
-  }
-
-  if (options.streams || options.accounts) {
-    // $JS.API.STREAM.LIST returns full StreamInfo in NATS 2.10+
-    const listResp = await natsRequest(nc, '$JS.API.STREAM.LIST', { offset: 0 })
-    const streams = listResp.streams || []
-
-    const streamDetails = await Promise.all(
-      streams.map(async (s) => {
-        const detail = {
-          name:           s.config.name,
-          created:        s.created,
-          config:         s.config,
-          state:          s.state,
-          cluster:        s.cluster,
-          consumer_count: s.state?.consumer_count || 0,
-        }
-
-        if (options.consumers) {
-          try {
-            const cListResp = await natsRequest(nc, `$JS.API.CONSUMER.LIST.${s.config.name}`, { offset: 0 })
-            detail.consumer_detail = cListResp.consumers || []
-          } catch {
-            detail.consumer_detail = []
-          }
-        }
-
-        return detail
-      })
-    )
-
-    result.account_details = [{
-      name:          'default',
-      stream_detail: streamDetails,
-    }]
-  }
-
-  return result
-}
-
-// Healthz only, connz/routez/etc. not available via NATS protocol without system account
-const NOT_AVAILABLE = (endpoint) => ({
-  _via:  'nats_protocol',
-  _note: `${endpoint} requires HTTP monitoring port 8222 or NATS system account.`,
-  _unavailable: true,
-})
-
-// ─── Path router ─────────────────────────────────────────────────────────────
-
-function parseQuery(path) {
-  const [, qs = ''] = path.split('?')
-  return Object.fromEntries(
-    qs.split('&').filter(Boolean).map(kv => {
-      const [k, v = 'true'] = kv.split('=')
-      return [decodeURIComponent(k), decodeURIComponent(v)]
-    })
-  )
-}
-
-async function handlePath(nc, path) {
-  const endpoint = path.split('?')[0].replace(/^\//, '')
-  const options = parseQuery(path)
-
-  switch (endpoint) {
-    case 'varz':      return handleVarz(nc)
-    case 'healthz':   return handleHealthz(nc)
-    case 'jsz':       return handleJsz(nc, {
-      accounts:  options.accounts  === 'true',
-      streams:   options.streams   === 'true',
-      consumers: options.consumers === 'true',
-    })
-    case 'connz':     return NOT_AVAILABLE('connz')
-    case 'routez':    return NOT_AVAILABLE('routez')
-    case 'gatewayz':  return NOT_AVAILABLE('gatewayz')
-    case 'leafz':     return NOT_AVAILABLE('leafz')
-    case 'subsz':     return NOT_AVAILABLE('subsz')
-    case 'accountz':  return NOT_AVAILABLE('accountz')
-    case 'accstatz':  return NOT_AVAILABLE('accstatz')
-    default:          throw new Error(`Unknown endpoint: ${endpoint}`)
-  }
-}
-
-// ─── Scheduled purge store (shared across dev server requests) ────────────────
-
-const schedules = new Map()
-
-function newScheduleId() {
-  return randomBytes(8).toString('hex')
-}
-
-async function executePurge(streamName, subject, natsServer, token) {
-  const nc = await getConn(natsServer, token)
-  const body = subject ? { filter: subject } : {}
-  const resp = await natsRequest(nc, `$JS.API.STREAM.PURGE.${streamName}`, body)
-  if (resp.error) throw new Error(resp.error.description || 'Purge failed')
-  return resp
-}
-
-function armSchedule(schedule) {
-  const target = new Date(schedule.nextRun).getTime()
-  const delay = Math.max(0, target - Date.now())
-
-  const fire = async () => {
-    const s = schedules.get(schedule.id)
-    if (!s) return
-    s.status = 'running'
-    try {
-      await executePurge(s.stream, s.subject, s.server, s.token)
-      s.lastRun = new Date().toISOString()
-      s.error = null
-      if (s.type === 'once') {
-        s.status = 'done'; s.timerId = null
-      } else {
-        s.status = 'active'
-        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
-        s.timerId = setTimeout(fire, s.intervalMs)
-      }
-    } catch (err) {
-      s.lastRun = new Date().toISOString()
-      s.error = err.message
-      if (s.type === 'once') {
-        s.status = 'error'; s.timerId = null
-      } else {
-        s.status = 'active'
-        s.nextRun = new Date(Date.now() + s.intervalMs).toISOString()
-        s.timerId = setTimeout(fire, s.intervalMs)
-      }
-    }
-  }
-
-  schedule.timerId = setTimeout(fire, delay)
-}
-
-function serializeSchedule(s) {
-  // eslint-disable-next-line no-unused-vars
-  const { timerId, token, server: _srv, ...rest } = s
-  return rest
-}
-
-// ─── Scheduled publish store (dev) ───────────────────────────────────────────
-
-const scheduledPublishes = new Map()
-
-async function executePublish(natsServer, token, subject, payload, headersArr, msgTtl) {
-  const nc = await getConn(natsServer, token)
-  const js = nc.jetstream()
-  let hdr
-  const allHeaders = [...(headersArr || [])]
-  if (msgTtl) allHeaders.push({ key: 'Nats-Msg-Ttl', value: msgTtl })
-  if (allHeaders.length) {
-    hdr = natsHeaders()
-    for (const { key, value } of allHeaders) hdr.append(key, String(value))
-  }
-  const data = payload ? sc.encode(payload) : new Uint8Array(0)
-  const opts = hdr ? { headers: hdr } : {}
-  const ack = await js.publish(subject, data, opts)
-  return { stream: ack.stream, seq: ack.seq, duplicate: ack.duplicate }
-}
-
-function serializePublish(p) {
-  // eslint-disable-next-line no-unused-vars
-  const { timerId, token, server: _srv, ...rest } = p
-  return rest
-}
-
-async function fetchStreamMessages(nc, streamName, opts = {}) {
-  const { limit = 50, startSeq, afterSeq, startTime, subject } = opts
-
-  const streamInfo = await natsRequest(nc, `$JS.API.STREAM.INFO.${streamName}`, {})
-  if (streamInfo.error) throw new Error(streamInfo.error.description || 'Stream not found')
-  const state = streamInfo.state || {}
-  const firstSeq = state.first_seq || 1
-  const lastSeq = state.last_seq || 0
-
-  if (lastSeq === 0) return { messages: [], firstSeq, lastSeq, hasMore: false }
-
-  const consumerConfig = { ack_policy: 'none' }
-  if (subject && subject.trim()) consumerConfig.filter_subject = subject.trim()
-
-  const afterSeqNum = afterSeq != null ? Number(afterSeq) : null
-  const startSeqNum = startSeq != null ? Number(startSeq) : null
-
-  if (afterSeqNum != null) {
-    const nextSeq = afterSeqNum + 1
-    if (nextSeq > lastSeq) return { messages: [], firstSeq, lastSeq, hasMore: false }
-    consumerConfig.deliver_policy = 'by_start_sequence'
-    consumerConfig.opt_start_seq = nextSeq
-  } else if (startSeqNum != null) {
-    if (startSeqNum > lastSeq) return { messages: [], firstSeq, lastSeq, hasMore: false }
-    consumerConfig.deliver_policy = 'by_start_sequence'
-    consumerConfig.opt_start_seq = Math.max(1, startSeqNum)
-  } else if (startTime) {
-    consumerConfig.deliver_policy = 'by_start_time'
-    consumerConfig.opt_start_time = new Date(startTime).toISOString()
-  } else {
-    const startFrom = Math.max(firstSeq, lastSeq - limit + 1)
-    consumerConfig.deliver_policy = 'by_start_sequence'
-    consumerConfig.opt_start_seq = startFrom
-  }
-
-  const createResp = await natsRequest(nc, `$JS.API.CONSUMER.CREATE.${streamName}`, consumerConfig)
-  if (createResp.error) throw new Error(createResp.error.description || 'Failed to create consumer')
-  const consumerName = createResp.name
-
-  const messages = []
-  try {
-    const js = nc.jetstream()
-    const consumer = await js.consumers.get(streamName, consumerName)
-    const msgs = await consumer.fetch({ max_messages: limit, expires: 5000 })
-
-    for await (const m of msgs) {
-      let timeStr = null
-      try {
-        const tsHdr = m.headers?.get('Nats-Time-Stamp')
-        if (tsHdr) {
-          timeStr = new Date(tsHdr).toISOString()
-        } else {
-          const tsNs = m.info?.timestampNanos
-          if (tsNs != null) {
-            const ms = typeof tsNs === 'bigint' ? Number(tsNs / 1000000n) : Math.floor(Number(tsNs) / 1e6)
-            timeStr = new Date(ms).toISOString()
-          }
-        }
-      } catch {}
-
-      let data = ''
-      try { data = m.string() } catch { data = '[binary data]' }
-
-      const hdrs = {}
-      try {
-        if (m.headers) {
-          for (const k of m.headers.keys()) {
-            if (!k.startsWith('Nats-')) hdrs[k] = m.headers.values(k).join(', ')
-          }
-        }
-      } catch {}
-
-      messages.push({ seq: m.seq, subject: m.subject, data, headers: hdrs, time: timeStr })
-    }
-  } finally {
-    try {
-      await natsRequest(nc, `$JS.API.CONSUMER.DELETE.${streamName}.${consumerName}`, {})
-    } catch {}
-  }
-
-  const lastMsg = messages[messages.length - 1]
-  return {
-    messages,
-    firstSeq,
-    lastSeq,
-    hasMore: messages.length >= limit && (lastMsg?.seq ?? 0) < lastSeq,
-  }
-}
-
-function readJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = ''
-    req.on('data', (c) => { body += c })
-    req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {})
-      } catch {
-        reject(new Error('Invalid JSON'))
-      }
-    })
-    req.on('error', reject)
-  })
+/** Resolve natsServer + token from request params, falling back to local contexts. */
+function resolveConn(serverParam, tokenParam) {
+  if (serverParam) return { natsServer: serverParam, token: tokenParam || null }
+  const { contexts } = loadNatsContexts()
+  const ctx = contexts[0]
+  if (!ctx) return { natsServer: null, token: null }
+  return { natsServer: ctx.url, token: tokenParam || ctx.token }
 }
 
 // ─── Vite plugin ──────────────────────────────────────────────────────────────
@@ -439,28 +103,23 @@ export function natsContextPlugin() {
   return {
     name: 'nats-context',
     configureServer(server) {
-      // Auth endpoints
+
+      // ── Auth ─────────────────────────────────────────────────────────────────
+
       server.middlewares.use('/api/auth/me', (req, res, next) => {
         if (req.method !== 'GET') return next()
         res.setHeader('Content-Type', 'application/json')
-        if (!AUTH_ENABLED) {
-          res.end(JSON.stringify({ authenticated: true }))
-          return
-        }
+        if (!AUTH_ENABLED) { res.end(JSON.stringify({ authenticated: true })); return }
         res.end(JSON.stringify({ authenticated: isAuthenticated(req) }))
       })
 
       server.middlewares.use('/api/login', async (req, res, next) => {
         if (req.method !== 'POST') return next()
         res.setHeader('Content-Type', 'application/json')
-        if (!AUTH_ENABLED) {
-          res.end(JSON.stringify({ ok: true }))
-          return
-        }
+        if (!AUTH_ENABLED) { res.end(JSON.stringify({ ok: true })); return }
         try {
           const body = await readJsonBody(req)
-          const { username, password } = body
-          if (username === DASHBOARD_USERNAME && password === DASHBOARD_PASSWORD) {
+          if (body.username === DASHBOARD_USERNAME && body.password === DASHBOARD_PASSWORD) {
             const sid = createSession()
             res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${sid}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_MAX_AGE}`)
             res.end(JSON.stringify({ ok: true }))
@@ -468,378 +127,217 @@ export function natsContextPlugin() {
             res.statusCode = 401
             res.end(JSON.stringify({ error: 'Invalid username or password' }))
           }
-        } catch (err) {
-          res.statusCode = 400
-          res.end(JSON.stringify({ error: err.message || 'Bad request' }))
-        }
+        } catch (err) { res.statusCode = 400; res.end(JSON.stringify({ error: err.message })) }
       })
 
       server.middlewares.use('/api/logout', (req, res, next) => {
         if (req.method !== 'POST') return next()
-        res.setHeader('Content-Type', 'application/json')
         const sid = getSessionId(req)
         if (sid) sessions.delete(sid)
         res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`)
+        res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify({ ok: true }))
       })
 
+      // ── Stream CRUD ──────────────────────────────────────────────────────────
+
       server.middlewares.use('/api/stream/delete', async (req, res, next) => {
         if (req.method !== 'POST') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false }))
-          return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
         try {
           const body = await readJsonBody(req)
-          const { stream, server: serverParam, token: tokenParam } = body
-          if (!stream || typeof stream !== 'string') {
-            res.statusCode = 400
-            res.end(JSON.stringify({ error: 'Missing or invalid stream name' }))
-            return
-          }
-          let natsServer = serverParam
-          let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) {
-            res.statusCode = 400
-            res.end(JSON.stringify({ error: 'Missing server' }))
-            return
-          }
-          const nc = await getConn(natsServer, token)
+          const { stream, server: sp, token: tp } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc   = await getConn(natsServer, token)
           const resp = await natsRequest(nc, `$JS.API.STREAM.DELETE.${stream}`, {})
           if (resp.error) throw new Error(resp.error.description || 'Delete failed')
-          res.statusCode = 200
           res.end(JSON.stringify({ ok: true }))
-        } catch (err) {
-          res.statusCode = 502
-          res.end(JSON.stringify({ error: err.message || 'Stream delete failed' }))
-        }
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
       })
 
       server.middlewares.use('/api/stream/update', async (req, res, next) => {
         if (req.method !== 'POST') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false }))
-          return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
         try {
           const body = await readJsonBody(req)
-          const { stream, config, server: serverParam, token: tokenParam } = body
-          if (!stream || typeof stream !== 'string') {
-            res.statusCode = 400
-            res.end(JSON.stringify({ error: 'Missing or invalid stream name' }))
-            return
-          }
-          if (!config || typeof config !== 'object') {
-            res.statusCode = 400
-            res.end(JSON.stringify({ error: 'Missing or invalid config' }))
-            return
-          }
-          let natsServer = serverParam
-          let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) {
-            res.statusCode = 400
-            res.end(JSON.stringify({ error: 'Missing server' }))
-            return
-          }
-          const nc = await getConn(natsServer, token)
+          const { stream, config, server: sp, token: tp } = body
+          if (!stream || !config) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream or config' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc       = await getConn(natsServer, token)
           const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
           if (infoResp.error) throw new Error(infoResp.error.description || 'Stream not found')
-          const current = infoResp.config || {}
-          const merged = { ...current, ...config, name: stream }
-          const resp = await natsRequest(nc, `$JS.API.STREAM.UPDATE.${stream}`, merged)
+          const merged   = { ...(infoResp.config || {}), ...config, name: stream }
+          const resp     = await natsRequest(nc, `$JS.API.STREAM.UPDATE.${stream}`, merged)
           if (resp.error) throw new Error(resp.error.description || 'Update failed')
-          res.statusCode = 200
           res.end(JSON.stringify({ ok: true, config: resp.config }))
-        } catch (err) {
-          res.statusCode = 502
-          res.end(JSON.stringify({ error: err.message || 'Stream update failed' }))
-        }
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
       })
 
-      // ── Stream publish ──────────────────────────────────────────────────────
+      server.middlewares.use('/api/stream/purge', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, subject, server: sp, token: tp } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc   = await getConn(natsServer, token)
+          const body2 = subject ? { filter: subject } : {}
+          const resp = await natsRequest(nc, `$JS.API.STREAM.PURGE.${stream}`, body2)
+          if (resp.error) throw new Error(resp.error.description || 'Purge failed')
+          res.end(JSON.stringify({ ok: true, purged: resp.purged ?? 0 }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      // ── Messages ─────────────────────────────────────────────────────────────
+
+      server.middlewares.use('/api/stream/messages', async (req, res, next) => {
+        if (req.method !== 'GET') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const u         = new URL(req.url, 'http://x')
+          const stream    = u.searchParams.get('stream')
+          const limit     = Math.min(parseInt(u.searchParams.get('limit') || '50', 10), 200)
+          const startSeq  = u.searchParams.get('startSeq')  || null
+          const afterSeq  = u.searchParams.get('afterSeq')  || null
+          const startTime = u.searchParams.get('startTime') || null
+          const subject   = u.searchParams.get('subject')   || null
+          const { natsServer, token } = resolveConn(u.searchParams.get('server'), u.searchParams.get('token'))
+          if (!stream)      { res.statusCode = 400; res.end(JSON.stringify({ error: 'stream param required' })); return }
+          if (!natsServer)  { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc   = await getConn(natsServer, token)
+          const data = await fetchStreamMessages(nc, stream, { limit, startSeq, afterSeq, startTime, subject })
+          res.end(JSON.stringify(data))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      // ── Publish ──────────────────────────────────────────────────────────────
+
       server.middlewares.use('/api/stream/publish', async (req, res, next) => {
-        // DELETE /api/stream/publish/:id — cancel scheduled publish
         if (req.method === 'DELETE') {
-          const id = req.url?.replace(/^\//, '').split('?')[0]
-          if (AUTH_ENABLED && !isAuthenticated(req)) {
-            res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-          }
+          if (guardAuth(req, res)) return
           res.setHeader('Content-Type', 'application/json')
-          const p = scheduledPublishes.get(id)
+          const id = req.url?.replace(/^\//, '').split('?')[0]
+          const p  = scheduledPublishes.get(id)
           if (!p) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Publish not found' })); return }
           if (p.timerId) clearTimeout(p.timerId)
           scheduledPublishes.delete(id)
           res.end(JSON.stringify({ ok: true })); return
         }
         if (req.method !== 'POST') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
         try {
           const body = await readJsonBody(req)
-          const { stream, subject, payload = '', headers: headersArr = [], scheduleAt, msgTtl, server: serverParam, token: tokenParam } = body
+          const { stream, subject, payload = '', headers: headersArr = [], scheduleAt, msgTtl, server: sp, token: tp } = body
           if (!stream || !subject) { res.statusCode = 400; res.end(JSON.stringify({ error: 'stream and subject are required' })); return }
-          let natsServer = serverParam; let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
 
           if (scheduleAt) {
-            const delay = Math.max(0, new Date(scheduleAt).getTime() - Date.now())
-            const id = newScheduleId()
-            const pub = {
-              id, stream, subject, payload, headers: headersArr, msgTtl: msgTtl || null,
-              server: natsServer, token,
-              scheduleAt, createdAt: new Date().toISOString(),
-              status: 'pending', result: null, error: null, timerId: null,
-            }
-            pub.timerId = setTimeout(async () => {
-              const p = scheduledPublishes.get(id)
-              if (!p) return
-              p.status = 'running'
-              try {
-                p.result = await executePublish(p.server, p.token, p.subject, p.payload, p.headers, p.msgTtl)
-                p.status = 'delivered'
-              } catch (err) {
-                p.error = err.message; p.status = 'error'
-              }
-              p.timerId = null
-            }, delay)
-            scheduledPublishes.set(id, pub)
+            const pub = schedulePublish({ stream, subject, payload, headers: headersArr, msgTtl: msgTtl || null, scheduleAt, natsServer, token })
             res.statusCode = 201
-            res.end(JSON.stringify({ ok: true, scheduled: true, id, scheduleAt }))
+            res.end(JSON.stringify({ ok: true, scheduled: true, id: pub.id, scheduleAt }))
           } else {
             const result = await executePublish(natsServer, token, subject, payload, headersArr, msgTtl)
             res.end(JSON.stringify({ ok: true, scheduled: false, ...result }))
           }
-        } catch (err) {
-          res.statusCode = 502; res.end(JSON.stringify({ error: err.message || 'Publish failed' }))
-        }
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
       })
 
       server.middlewares.use('/api/stream/publishes', (req, res, next) => {
         if (req.method !== 'GET') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
-        const reqUrl = new URL(req.url, 'http://x')
-        const streamFilter = reqUrl.searchParams.get('stream')
-        const list = [...scheduledPublishes.values()]
-          .filter(p => !streamFilter || p.stream === streamFilter)
-          .map(serializePublish)
+        const u      = new URL(req.url, 'http://x')
+        const stream = u.searchParams.get('stream')
+        const list   = [...scheduledPublishes.values()].filter(p => !stream || p.stream === stream).map(serializePublish)
         res.end(JSON.stringify({ publishes: list }))
       })
 
-      server.middlewares.use('/api/stream/messages', async (req, res, next) => {
-        if (req.method !== 'GET') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
-        res.setHeader('Content-Type', 'application/json')
-        try {
-          const reqUrl = new URL(req.url, 'http://x')
-          const stream = reqUrl.searchParams.get('stream')
-          const limit = Math.min(parseInt(reqUrl.searchParams.get('limit') || '50', 10), 200)
-          const startSeq = reqUrl.searchParams.get('startSeq') || null
-          const afterSeq = reqUrl.searchParams.get('afterSeq') || null
-          const startTime = reqUrl.searchParams.get('startTime') || null
-          const subject = reqUrl.searchParams.get('subject') || null
-          const serverParam = reqUrl.searchParams.get('server')
-          const tokenParam = reqUrl.searchParams.get('token')
-
-          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'stream param required' })); return }
-          let natsServer = serverParam; let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
-
-          const nc = await getConn(natsServer, token)
-          const data = await fetchStreamMessages(nc, stream, { limit, startSeq, afterSeq, startTime, subject })
-          res.end(JSON.stringify(data))
-        } catch (err) {
-          res.statusCode = 502; res.end(JSON.stringify({ error: err.message || 'Failed to fetch messages' }))
-        }
-      })
-
-      server.middlewares.use('/api/stream/purge', async (req, res, next) => {
-        if (req.method !== 'POST') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
-        res.setHeader('Content-Type', 'application/json')
-        try {
-          const body = await readJsonBody(req)
-          const { stream, subject, server: serverParam, token: tokenParam } = body
-          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
-          let natsServer = serverParam; let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
-          const result = await executePurge(stream, subject || null, natsServer, token)
-          res.end(JSON.stringify({ ok: true, purged: result.purged ?? 0 }))
-        } catch (err) {
-          res.statusCode = 502; res.end(JSON.stringify({ error: err.message || 'Purge failed' }))
-        }
-      })
+      // ── Schedules ────────────────────────────────────────────────────────────
 
       server.middlewares.use('/api/stream/schedules', (req, res, next) => {
         if (req.method !== 'GET') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
-        const reqUrl = new URL(req.url, 'http://x')
-        const streamFilter = reqUrl.searchParams.get('stream')
-        const list = [...schedules.values()]
-          .filter(s => !streamFilter || s.stream === streamFilter)
-          .map(serializeSchedule)
+        const u      = new URL(req.url, 'http://x')
+        const stream = u.searchParams.get('stream')
+        const list   = [...schedules.values()].filter(s => !stream || s.stream === stream).map(serializeSchedule)
         res.end(JSON.stringify({ schedules: list }))
       })
 
       server.middlewares.use('/api/stream/schedule', async (req, res, next) => {
-        // DELETE /api/stream/schedule/:id
         if (req.method === 'DELETE') {
-          const id = req.url?.replace(/^\//, '').split('?')[0]
-          if (AUTH_ENABLED && !isAuthenticated(req)) {
-            res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-          }
+          if (guardAuth(req, res)) return
           res.setHeader('Content-Type', 'application/json')
-          const s = schedules.get(id)
+          const id = req.url?.replace(/^\//, '').split('?')[0]
+          const s  = schedules.get(id)
           if (!s) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Schedule not found' })); return }
           if (s.timerId) clearTimeout(s.timerId)
           schedules.delete(id)
           res.end(JSON.stringify({ ok: true })); return
         }
-        // POST /api/stream/schedule — create
         if (req.method !== 'POST') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401; res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false })); return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
         try {
           const body = await readJsonBody(req)
-          const { stream, type, runAt, intervalMs, intervalLabel, subject, server: serverParam, token: tokenParam } = body
-          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream' })); return }
+          const { stream, type, runAt, intervalMs, intervalLabel, subject, server: sp, token: tp } = body
+          if (!stream)                          { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream' })); return }
           if (type !== 'once' && type !== 'recurring') { res.statusCode = 400; res.end(JSON.stringify({ error: 'type must be once|recurring' })); return }
-          if (type === 'once' && !runAt) { res.statusCode = 400; res.end(JSON.stringify({ error: 'runAt required for once schedule' })); return }
+          if (type === 'once' && !runAt)        { res.statusCode = 400; res.end(JSON.stringify({ error: 'runAt required for once schedule' })); return }
           if (type === 'recurring' && (!intervalMs || intervalMs < 60000)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'intervalMs must be ≥ 60000' })); return }
 
-          let natsServer = serverParam; let token = tokenParam
-          if (!natsServer) {
-            const { contexts } = loadNatsContexts()
-            const ctx = contexts[0]
-            if (ctx) { natsServer = ctx.url; token = token || ctx.token }
-          }
-          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server' })); return }
-
-          const id = newScheduleId()
-          const nextRun = type === 'once' ? runAt : new Date(Date.now() + Number(intervalMs)).toISOString()
-          const schedule = {
-            id, stream, type,
-            runAt: type === 'once' ? runAt : null,
-            intervalMs: type === 'recurring' ? Number(intervalMs) : null,
-            intervalLabel: type === 'recurring' ? (intervalLabel || `${Math.round(Number(intervalMs)/60000)}m`) : null,
-            subject: subject || null,
-            server: natsServer, token,
-            createdAt: new Date().toISOString(),
-            lastRun: null, nextRun,
-            status: 'active', error: null, timerId: null,
-          }
-          schedules.set(id, schedule)
-          armSchedule(schedule)
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const schedule = createSchedule({ stream, type, runAt, intervalMs, intervalLabel, subject, natsServer, token })
           res.statusCode = 201
           res.end(JSON.stringify({ ok: true, schedule: serializeSchedule(schedule) }))
-        } catch (err) {
-          res.statusCode = 400; res.end(JSON.stringify({ error: err.message }))
-        }
+        } catch (err) { res.statusCode = 400; res.end(JSON.stringify({ error: err.message })) }
       })
+
+      // ── NATS contexts + proxy ─────────────────────────────────────────────────
 
       server.middlewares.use('/api/nats-contexts', (req, res, next) => {
         if (req.method !== 'GET') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false }))
-          return
-        }
+        if (guardAuth(req, res)) return
         try {
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(loadNatsContexts()))
-        } catch (err) {
-          res.statusCode = 500
-          res.end(JSON.stringify({ error: err.message }))
-        }
+        } catch (err) { res.statusCode = 500; res.end(JSON.stringify({ error: err.message })) }
       })
 
       server.middlewares.use('/api/nats-proxy', async (req, res, next) => {
         if (req.method !== 'GET') return next()
-        if (AUTH_ENABLED && !isAuthenticated(req)) {
-          res.statusCode = 401
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: 'Unauthorized', authenticated: false }))
-          return
-        }
+        if (guardAuth(req, res)) return
         res.setHeader('Content-Type', 'application/json')
+        const u    = new URL(req.url, 'http://x')
+        const srv  = u.searchParams.get('server')
+        const path = u.searchParams.get('path') || '/'
+        let token  = u.searchParams.get('token') || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
 
-        const reqUrl = new URL(req.url, 'http://x')
-        const server = reqUrl.searchParams.get('server')
-        const path   = reqUrl.searchParams.get('path') || '/'
-        const token  = reqUrl.searchParams.get('token')
-          || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
+        if (!srv) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server param' })); return }
 
-        if (!server) {
-          res.statusCode = 400
-          return res.end(JSON.stringify({ error: 'Missing server param' }))
-        }
-
-        // Try to fill in token from saved contexts if not provided
-        let authToken = token
-        if (!authToken) {
+        if (!token) {
           try {
-            const host = new URL(server.startsWith('nats') ? server : `nats://${new URL(server).host}`).hostname
+            const host = new URL(srv.startsWith('nats') ? srv : `nats://${new URL(srv).host}`).hostname
             const { contexts } = loadNatsContexts()
             const ctx = contexts.find(c => new URL(c.url).hostname === host)
-            if (ctx?.token) authToken = ctx.token
+            if (ctx?.token) token = ctx.token
           } catch { /* ignore */ }
         }
 
         try {
-          const nc = await getConn(server, authToken)
+          const nc   = await getConn(srv, token)
           const data = await handlePath(nc, path)
           res.statusCode = 200
           res.end(JSON.stringify(data))

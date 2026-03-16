@@ -1,0 +1,6 @@
+export { ConsumersTab }  from './ConsumersTab'
+export { MessagesTab }   from './MessagesTab'
+export { PropertiesTab } from './PropertiesTab'
+export { PublishTab }    from './PublishTab'
+export { RelationsTab }  from './RelationsTab'
+export { ScheduleTab }   from './ScheduleTab'
