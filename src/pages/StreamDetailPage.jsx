@@ -395,7 +395,22 @@ function PropertiesTab({ stream, onUpdate }) {
           editable: true, options: ['false', 'true'],
           onSave: makeUpdater('discard_new_per_subject', v => v === 'true'),
         },
-        { label: 'Replicas', value: cfg.num_replicas?.toString() ?? '1', editable: false },
+        { label: 'Replicas',
+          value: cfg.num_replicas?.toString() ?? '1',
+          displayValue: (
+            <span className="flex items-center gap-2">
+              <span>{cfg.num_replicas ?? 1}</span>
+              <span className="text-xs text-gray-500">(1–5, cluster required for &gt;1)</span>
+            </span>
+          ),
+          editable: true,
+          options: ['1', '2', '3', '4', '5'],
+          onSave: makeUpdater('num_replicas', v => {
+            const n = parseInt(v, 10)
+            if (isNaN(n) || n < 1 || n > 5) throw new Error('Replicas must be 1–5')
+            return n
+          }),
+        },
         { label: 'First Sequence', value: (cfg.first_seq || 1).toLocaleString(), editable: false },
         { label: 'Duplicate Window',
           value: nsToDuration(cfg.duplicate_window),
