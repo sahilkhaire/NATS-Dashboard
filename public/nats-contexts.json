@@ -1,0 +1,11 @@
+{
+  "contexts": [
+    {
+      "name": "nats-dev-server",
+      "description": "NATS Dev Server",
+      "url": "nats://46.62.133.243:4222",
+      "monitoringUrl": "http://46.62.133.243:8222"
+    }
+  ],
+  "current": "nats-dev-server"
+}

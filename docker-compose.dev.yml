@@ -1,0 +1,19 @@
+# Development mode - dashboard runs with Vite dev server
+# Run: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Access: http://localhost:5173
+# Note: Browser will call localhost:8222 for NATS - run NATS locally or use host.docker.internal
+
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        VITE_NATS_URL: http://localhost:8222
+    command: npm run dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+    environment:
+      - VITE_NATS_URL=http://localhost:8222

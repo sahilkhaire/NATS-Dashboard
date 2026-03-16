@@ -1,0 +1,22 @@
+# NATS Dashboard - Docker Compose
+# Set NATS_URL and NATS_TOKEN (or use .env file)
+# Run: docker compose up -d
+# Access: http://localhost:3000
+# Versioning: bump package.json version, then npm run docker:push
+
+services:
+  dashboard:
+    image: sahilkhaire/nats-dashboard:${DASHBOARD_VERSION:-0.0.3}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NATS_URL: ${NATS_URL:-nats://localhost:4222}
+      NATS_TOKEN: ${NATS_TOKEN:-}
+      NATS_NAME: ${NATS_NAME:-docker}
+      NATS_DESCRIPTION: ${NATS_DESCRIPTION:-Docker NATS Server}
+      PORT: 3000
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
