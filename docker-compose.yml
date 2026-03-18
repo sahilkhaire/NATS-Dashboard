@@ -1,12 +1,17 @@
 # NATS Dashboard - Docker Compose
-# Set NATS_URL and NATS_TOKEN (or use .env file)
+# Set NATS_URL (and NATS_MONITORING_URL if NATS host differs) and NATS_TOKEN (or use .env file)
 # Run: docker compose up -d
 # Access: http://localhost:3000
+#
+# Port 4222 = NATS protocol (JetStream). Port 8222 = HTTP monitoring (connz, varz, etc.)
+# If NATS_URL is nats://host:4222, monitoringUrl is auto-derived as http://host:8222.
+# Override with NATS_MONITORING_URL when NATS runs elsewhere (e.g. http://nats:8222).
+#
 # Versioning: bump package.json version, then npm run docker:push
 
 services:
   dashboard:
-    image: sahilkhaire/nats-dashboard:${DASHBOARD_VERSION:-0.0.3}
+    image: sahilkhaire/nats-dashboard:${DASHBOARD_VERSION:-0.0.6}
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,6 +19,7 @@ services:
       - "3000:3000"
     environment:
       NATS_URL: ${NATS_URL:-nats://localhost:4222}
+      NATS_MONITORING_URL: ${NATS_MONITORING_URL:-}
       NATS_TOKEN: ${NATS_TOKEN:-}
       NATS_NAME: ${NATS_NAME:-docker}
       NATS_DESCRIPTION: ${NATS_DESCRIPTION:-Docker NATS Server}

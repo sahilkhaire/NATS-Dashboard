@@ -1,0 +1,19 @@
+# Example: Dashboard + NATS in same compose (full stack)
+# Run: docker compose -f docker-compose.yml -f docker-compose.nats.yml up -d
+# Dashboard: http://localhost:3000
+# NATS must have http_port: 8222 for monitoring (connz, varz, subsz, etc.)
+
+services:
+  nats:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-m", "8222", "-js"]
+
+  dashboard:
+    depends_on:
+      - nats
+    environment:
+      NATS_URL: nats://nats:4222
+      NATS_MONITORING_URL: http://nats:8222

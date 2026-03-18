@@ -32,12 +32,33 @@ Set `VITE_NATS_URL` to your NATS server URL (e.g. `http://192.168.1.10:8222`) if
 ### Option 3: Docker
 
 ```bash
-# Build and run with NATS
+# Build and run
 docker compose up -d
 
-# Dashboard: http://localhost:80
-# NATS monitoring: http://localhost:8222
+# Dashboard: http://localhost:3000
 ```
+
+**Docker env vars** (set in `.env` or `docker compose`):
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `NATS_URL` | NATS protocol (port 4222) | `nats://nats:4222` or `nats://host.docker.internal:4222` |
+| `NATS_MONITORING_URL` | HTTP monitoring (port 8222). Auto-derived from NATS_URL if unset. | `http://nats:8222` when NATS is in another container |
+| `NATS_TOKEN` | Auth token (if NATS uses token auth) | |
+
+**NATS in another container:** Use the service name as host. Example `.env`:
+```bash
+NATS_URL=nats://nats:4222
+NATS_MONITORING_URL=http://nats:8222
+```
+Then `docker compose up -d` (add NATS service to the same compose file, or use an external NATS network).
+
+**NATS on host:** Use `host.docker.internal` (Mac/Windows) or host IP:
+```bash
+NATS_URL=nats://host.docker.internal:4222
+# monitoringUrl auto-derived as http://host.docker.internal:8222
+```
+Ensure NATS has `-m 8222` or `http_port: 8222` in config.
 
 ### Option 4: Production build
 
