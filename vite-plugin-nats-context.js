@@ -57,6 +57,22 @@ function guardAuth(req, res) {
 
 // ─── Dev context loader (reads ~/.config/nats/) ───────────────────────────────
 
+/**
+ * Convert a nats:// URL to an HTTP monitoring URL on port 8222.
+ * Matches the same logic in scripts/sync-nats-context.js.
+ */
+function toMonitoringUrl(natsUrl) {
+  if (!natsUrl || typeof natsUrl !== 'string') return null
+  // Already an HTTP URL — return as-is
+  if (natsUrl.startsWith('http://') || natsUrl.startsWith('https://')) return natsUrl
+  try {
+    const u = new URL(natsUrl)
+    return `http://${u.hostname}:8222`
+  } catch {
+    return null
+  }
+}
+
 function loadNatsContexts() {
   const home       = process.env.HOME || process.env.USERPROFILE
   const configDir  = process.env.XDG_CONFIG_HOME
@@ -76,11 +92,13 @@ function loadNatsContexts() {
     try {
       const ctx = JSON.parse(readFileSync(join(contextDir, file), 'utf8'))
       if (!ctx.url) continue
+      // Prefer an explicit monitoring_url field; otherwise derive from NATS URL
+      const monitoringUrl = ctx.monitoring_url || toMonitoringUrl(ctx.url)
       contexts.push({
         name,
         description:   ctx.description || name,
         url:           ctx.url,
-        monitoringUrl: ctx.url,
+        monitoringUrl: monitoringUrl || ctx.url,
         token:         ctx.token || ctx.password || null,
       })
     } catch { /* skip malformed context */ }
@@ -326,6 +344,24 @@ export function natsContextPlugin() {
         let token  = u.searchParams.get('token') || req.headers['authorization']?.replace(/^Bearer\s+/i, '')
 
         if (!srv) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing server param' })); return }
+
+        // If it's an HTTP monitoring URL, fetch directly — no NATS protocol needed.
+        // This makes connz, routez, gatewayz, leafz, accountz, subsz all available.
+        if (srv.startsWith('http://') || srv.startsWith('https://')) {
+          try {
+            const base   = srv.replace(/\/$/, '')
+            const p      = path.startsWith('/') ? path : `/${path}`
+            const resp   = await fetch(`${base}${p}`, { signal: AbortSignal.timeout(10000) })
+            if (!resp.ok) throw new Error(`HTTP ${resp.status} from monitoring endpoint`)
+            const data = await resp.json()
+            res.statusCode = 200
+            res.end(JSON.stringify(data))
+          } catch (err) {
+            res.statusCode = 502
+            res.end(JSON.stringify({ error: err.message || 'Monitoring fetch failed' }))
+          }
+          return
+        }
 
         if (!token) {
           try {

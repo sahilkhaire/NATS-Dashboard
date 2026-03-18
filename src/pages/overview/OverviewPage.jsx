@@ -212,7 +212,7 @@ export function OverviewPage({ onData }) {
           label="JetStream"
           icon={Database}
           value={jsz ? <span className="text-nats-ok">Enabled</span> : <span className="text-gray-400">—</span>}
-          subValue={jsz ? `${jsz.total_streams ?? 0} streams · ${jsz.total_consumers ?? 0} consumers` : undefined}
+          subValue={jsz ? `${jsz.total_streams ?? jsz.streams ?? 0} streams · ${jsz.total_consumers ?? jsz.consumers ?? 0} consumers` : undefined}
           to="/jetstream"
         />
         <StatBox
@@ -243,8 +243,8 @@ export function OverviewPage({ onData }) {
           variant={slowConsumers > 0 ? 'error' : 'default'}
           to="/connections"
         />
-        <StatBox label="Streams"     value={jsz?.total_streams   ?? '—'} icon={Database}     to="/streams" />
-        <StatBox label="Consumers"   value={jsz?.total_consumers ?? '—'} icon={MessageSquare} to="/streams" />
+        <StatBox label="Streams"   value={jsz ? (jsz.total_streams   ?? jsz.streams   ?? 0) : '—'} icon={Database}      to="/streams" />
+        <StatBox label="Consumers" value={jsz ? (jsz.total_consumers ?? jsz.consumers ?? 0) : '—'} icon={MessageSquare} to="/streams" />
         <StatBox
           label="JS API Errors"
           value={jsz?.api?.errors ?? '—'}
@@ -291,7 +291,7 @@ export function OverviewPage({ onData }) {
             <GaugeBar value={jsMem} max={jsMemMax > 0 ? jsMemMax : jsMem || 1} label="" showPercent={jsMemMax > 0} />
             <div className="flex gap-4 text-xs text-gray-500">
               <span>Reserved: {formatBytes(jsz.reserved_memory ?? 0)}</span>
-              <span>Messages: {(jsz.total_messages ?? 0).toLocaleString()}</span>
+              <span>Messages: {(jsz.total_messages ?? jsz.messages ?? 0).toLocaleString()}</span>
             </div>
           </div>
           <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
@@ -304,7 +304,7 @@ export function OverviewPage({ onData }) {
             <GaugeBar value={jsStore} max={jsStoreMax > 0 ? jsStoreMax : jsStore || 1} label="" showPercent={jsStoreMax > 0} />
             <div className="flex gap-4 text-xs text-gray-500">
               <span>Reserved: {formatBytes(jsz.reserved_storage ?? 0)}</span>
-              <span>Bytes stored: {formatBytes(jsz.total_message_bytes ?? 0)}</span>
+              <span>Bytes stored: {formatBytes(jsz.total_message_bytes ?? jsz.bytes ?? 0)}</span>
             </div>
           </div>
         </div>

@@ -36,10 +36,10 @@ export function JetStreamPage() {
         <MetricCard label="API Errors" value={data.api?.errors ?? 0} variant={(data.api?.errors ?? 0) > 0 ? 'error' : 'default'} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Streams" value={data.total_streams ?? 0} />
-        <MetricCard label="Consumers" value={data.total_consumers ?? 0} />
-        <MetricCard label="Messages" value={(data.total_messages ?? 0).toLocaleString()} />
-        <MetricCard label="Bytes Stored" value={formatBytes(data.total_message_bytes)} />
+        <MetricCard label="Streams"      value={(data.total_streams  ?? data.streams   ?? 0).toLocaleString()} />
+        <MetricCard label="Consumers"    value={(data.total_consumers ?? data.consumers ?? 0).toLocaleString()} />
+        <MetricCard label="Messages"     value={(data.total_messages  ?? data.messages  ?? 0).toLocaleString()} />
+        <MetricCard label="Bytes Stored" value={formatBytes(data.total_message_bytes ?? data.bytes)} />
       </div>
     </div>
   )
