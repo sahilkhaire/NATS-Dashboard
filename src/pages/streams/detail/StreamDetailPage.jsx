@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useNatsPolling }    from '../../../hooks/useNatsPolling'
+import { normalizeRetention } from '../../../utils/retention'
 import { useStreamMutation } from '../../../hooks/useStreamMutation'
 import { AlertBanner }       from '../../../components/AlertBanner'
 import { RefreshSelector }   from '../../../components/RefreshSelector'
@@ -20,7 +21,7 @@ export function StreamDetailPage() {
   const [refreshInterval,  setRefreshInterval]  = useState(5000)
   const [deleteError,      setDeleteError]      = useState('')
 
-  const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true', refreshInterval)
+  const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
   const { deleteStream, updateStream, purgeStream } = useStreamMutation()
 
   if (error)  return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
@@ -73,7 +74,7 @@ export function StreamDetailPage() {
           <div>
             <h1 className="font-mono text-xl font-semibold text-nats-accent">{stream.name}</h1>
             <p className="text-xs text-gray-400 mt-0.5">
-              {stream.config?.storage ?? 'file'} · {stream.config?.retention ?? 'limits'} · {(stream.state?.messages ?? 0).toLocaleString()} msgs
+              {stream.config?.storage ?? 'file'} · {normalizeRetention(stream.config?.retention)} · {(stream.state?.messages ?? 0).toLocaleString()} msgs
             </p>
           </div>
         </div>

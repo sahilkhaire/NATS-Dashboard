@@ -1,5 +1,6 @@
 import { formatBytes }                             from '../../../../utils/byteFormatter'
 import { nsToDuration, parseDurationToNs }         from '../../../../utils/duration'
+import { normalizeRetention }                      from '../../../../utils/retention'
 import { PropertyRow }                             from '../components/PropertyRow'
 import { BoolBadge }                               from '../components/BoolBadge'
 import { SectionBox }                              from '../components/SectionBox'
@@ -64,7 +65,7 @@ export function PropertiesTab({ stream, onUpdate }) {
       rows: [
         { label: 'Storage Type',    value: cfg.storage ?? 'file', editable: false },
         { label: 'Compression',     value: cfg.compression || 'none', displayValue: cfg.compression && cfg.compression !== 'none' ? <span className="text-nats-accent text-xs font-medium uppercase">{cfg.compression}</span> : 'None', editable: true, options: ['none', 's2'], onSave: makeUpdater('compression') },
-        { label: 'Retention',       value: cfg.retention ?? 'limits', editable: true, options: ['limits', 'interest', 'workqueue'], onSave: makeUpdater('retention') },
+        { label: 'Retention',       value: normalizeRetention(cfg.retention), editable: true, options: ['limits', 'interest', 'workqueue'], onSave: makeUpdater('retention') },
         { label: 'Discard Policy',  value: cfg.discard   ?? 'old',   editable: true, options: ['old', 'new'], onSave: makeUpdater('discard') },
         { label: 'Discard New Per Subject', value: cfg.discard_new_per_subject ? 'true' : 'false', displayValue: <BoolBadge value={cfg.discard_new_per_subject} onLabel="Yes" offLabel="No" />, editable: true, options: ['false', 'true'], onSave: makeUpdater('discard_new_per_subject', v => v === 'true') },
         {

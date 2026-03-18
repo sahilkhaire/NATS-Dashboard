@@ -6,6 +6,7 @@ import { usePagination } from '../../hooks/usePagination'
 import { useStreamRates } from '../../hooks/useStreamRates'
 import { Link } from 'react-router-dom'
 import { formatBytes } from '../../utils/byteFormatter'
+import { normalizeRetention } from '../../utils/retention'
 import { StatusBadge } from '../../components/StatusBadge'
 import { SortableTh } from '../../components/ui'
 import { AlertBanner } from '../../components/AlertBanner'
@@ -152,7 +153,7 @@ export function StreamsPage() {
     })
   }
 
-  const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true', refreshInterval)
+  const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true&config=true', refreshInterval)
   const { deleteStream, updateStream } = useStreamMutation()
 
   const streams = useMemo(() => {
@@ -187,7 +188,7 @@ export function StreamsPage() {
         list = list.filter(s => s.name.toLowerCase().includes(q))
       }
     }
-    if (filterRetention !== 'all') list = list.filter(s => (s.config?.retention ?? 'limits') === filterRetention)
+    if (filterRetention !== 'all') list = list.filter(s => normalizeRetention(s.config?.retention) === filterRetention)
     if (filterStorage !== 'all') list = list.filter(s => (s.config?.storage ?? 'file') === filterStorage)
     return list
   }, [streams, search, useRegex, filterRetention, filterStorage])
@@ -198,7 +199,7 @@ export function StreamsPage() {
     getSortValue: (s, key) => {
       if (key === 'name')         return s.name ?? ''
       if (key === 'subjects')     return (s.config?.subjects ?? []).join(',')
-      if (key === 'retention')    return s.config?.retention ?? ''
+      if (key === 'retention')    return normalizeRetention(s.config?.retention)
       if (key === 'storage')      return s.config?.storage ?? ''
       if (key === 'messages')     return s.state?.messages ?? 0
       if (key === 'first_seq')    return s.state?.first_seq ?? 0
@@ -410,7 +411,7 @@ export function StreamsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="p-3"><StatusBadge status="info">{s.config?.retention ?? 'limits'}</StatusBadge></td>
+                  <td className="p-3"><StatusBadge status="info">{normalizeRetention(s.config?.retention)}</StatusBadge></td>
                   <td className="p-3 text-gray-300">{s.config?.storage ?? 'file'}</td>
 
                   {/* ── Dynamic group columns ── */}

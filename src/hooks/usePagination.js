@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 /**
  * Client-side pagination hook.
@@ -13,7 +13,13 @@ export function usePagination(data, defaultPageSize = 25) {
   const totalItems = data?.length ?? 0
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
 
-  const setPage = (p) => setPageRaw(Math.min(Math.max(1, p), totalPages))
+  const setPage = (p) => {
+    if (typeof p === 'function') {
+      setPageRaw(prev => Math.min(Math.max(1, p(prev)), totalPages))
+    } else {
+      setPageRaw(Math.min(Math.max(1, p), totalPages))
+    }
+  }
   const setPageSize = (s) => {
     setPageSizeRaw(s)
     setPageRaw(1)
@@ -25,10 +31,11 @@ export function usePagination(data, defaultPageSize = 25) {
     return data.slice(start, start + pageSize)
   }, [data, page, pageSize])
 
-  // Reset to page 1 if current page is out of range after data changes
-  if (page > totalPages && totalPages > 0) {
-    setPageRaw(1)
-  }
+  useEffect(() => {
+    if (page > totalPages && totalPages > 0) {
+      setPageRaw(1)
+    }
+  }, [page, totalPages])
 
   return { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize }
 }

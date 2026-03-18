@@ -57,7 +57,7 @@ function PaginationBar({ page, totalPages, totalItems, pageSize, onPage, onPageS
 
 export function ConsumersPage() {
   const [refreshInterval, setRefreshInterval] = useState(5000)
-  const { data, error, lastFetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true', refreshInterval)
+  const { data, error, lastFetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
 
   // ── Filter state ──
   const [search, setSearch] = useState('')

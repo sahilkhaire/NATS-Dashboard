@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+import { normalizeRetention } from '../../utils/retention'
 
 const RETENTION_OPTIONS = ['limits', 'interest', 'workqueue']
 
@@ -42,7 +43,7 @@ export function UpdateStreamModal({ open, stream, config, onClose, onSave }) {
   useEffect(() => {
     if (open && config) {
       setSubjects((config.subjects || []).join(', '))
-      setRetention(config.retention || 'limits')
+      setRetention(normalizeRetention(config.retention))
       setMaxMsgs(config.max_msgs?.toString() ?? '')
       setMaxBytes(config.max_bytes?.toString() ?? '')
       setMaxAge(nsToDuration(config.max_age) || '')
