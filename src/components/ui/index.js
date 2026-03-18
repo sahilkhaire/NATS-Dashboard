@@ -1,4 +1,5 @@
 export { AlertBanner } from './AlertBanner'
 export { GaugeBar }    from './GaugeBar'
 export { MetricCard }  from './MetricCard'
+export { SortableTh }  from './SortableTh'
 export { StatusBadge } from './StatusBadge'

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { useConfig } from '../../../../context/ConfigContext'
+import { useTableSort } from '../../../../hooks/useTableSort'
+import { SortableTh } from '../../../../components/ui'
 import { ChevronDown, Pause, Play, Filter, RotateCcw, Radio, History, X as XIcon } from 'lucide-react'
 
 export function MessagesTab({ stream }) {
@@ -144,8 +146,20 @@ export function MessagesTab({ stream }) {
     })
   }
 
-  const hasActiveFilters  = filterSubject || filterStartSeq || filterStartTime
-  const displayMessages   = mode === 'realtime' ? [...messages].reverse() : messages
+  const hasActiveFilters = filterSubject || filterStartSeq || filterStartTime
+  const rawDisplayMessages = mode === 'realtime' ? [...messages].reverse() : messages
+
+  const { sortedData: displayMessages, sortBy, sortDir, handleSort } = useTableSort(rawDisplayMessages, {
+    defaultSortBy: 'seq',
+    defaultSortDir: 'desc',
+    getSortValue: (m, key) => {
+      if (key === 'seq') return m.seq ?? 0
+      if (key === 'time') return m.time ? new Date(m.time).getTime() : 0
+      if (key === 'subject') return m.subject ?? ''
+      if (key === 'payload') return m.data ?? ''
+      return ''
+    },
+  })
 
   return (
     <div className="space-y-3">
@@ -274,10 +288,10 @@ export function MessagesTab({ stream }) {
         <table className="w-full text-xs">
           <thead className="bg-nats-card border-b border-nats-border">
             <tr>
-              <th className="text-left px-3 py-2 font-medium text-gray-400 w-20">Seq</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-400 w-44">Time</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-400 w-52">Subject</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-400">Payload</th>
+              <SortableTh sortKey="seq" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort} className="w-20">Seq</SortableTh>
+              <SortableTh sortKey="time" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort} className="w-44">Time</SortableTh>
+              <SortableTh sortKey="subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort} className="w-52">Subject</SortableTh>
+              <SortableTh sortKey="payload" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Payload</SortableTh>
               <th className="w-8" />
             </tr>
           </thead>

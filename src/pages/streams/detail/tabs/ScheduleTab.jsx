@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStreamMutation } from '../../../../hooks/useStreamMutation'
+import { useTableSort } from '../../../../hooks/useTableSort'
+import { SortableTh } from '../../../../components/ui'
 import { Plus, Flame, CalendarClock, Clock, RotateCcw, X as XIcon } from 'lucide-react'
 
 const INTERVAL_OPTIONS = [
@@ -133,6 +135,18 @@ export function ScheduleTab({ streamName, purgeStream }) {
     return new Date(s.nextRun).toLocaleString()
   }
 
+  const { sortedData: sortedSchedules, sortBy, sortDir, handleSort } = useTableSort(schedules, {
+    defaultSortBy: 'nextRun',
+    getSortValue: (s, key) => {
+      if (key === 'type') return s.type ?? ''
+      if (key === 'subject') return s.subject ?? ''
+      if (key === 'nextRun') return s.nextRun ? new Date(s.nextRun).getTime() : 0
+      if (key === 'lastRun') return s.lastRun ? new Date(s.lastRun).getTime() : 0
+      if (key === 'status') return s.status ?? ''
+      return ''
+    },
+  })
+
   return (
     <div className="space-y-5">
       {/* Immediate purge */}
@@ -185,16 +199,16 @@ export function ScheduleTab({ streamName, purgeStream }) {
           <table className="w-full text-sm">
             <thead className="bg-nats-card/60 border-b border-nats-border">
               <tr>
-                <th className="text-left p-3">Type</th>
-                <th className="text-left p-3">Subject Filter</th>
-                <th className="text-left p-3">Next Run</th>
-                <th className="text-left p-3">Last Run</th>
-                <th className="text-left p-3">Status</th>
+                <SortableTh sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Type</SortableTh>
+                <SortableTh sortKey="subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Subject Filter</SortableTh>
+                <SortableTh sortKey="nextRun" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Next Run</SortableTh>
+                <SortableTh sortKey="lastRun" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Last Run</SortableTh>
+                <SortableTh sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Status</SortableTh>
                 <th className="text-left p-3 w-16"></th>
               </tr>
             </thead>
             <tbody>
-              {schedules.map(s => (
+              {sortedSchedules.map(s => (
                 <tr key={s.id} className="border-b border-nats-border hover:bg-nats-border/20">
                   <td className="p-3">
                     <div className="flex items-center gap-1.5">

@@ -1,9 +1,22 @@
 import { useNatsPolling } from '../../hooks/useNatsPolling'
+import { useTableSort } from '../../hooks/useTableSort'
 import { AlertBanner } from '../../components/AlertBanner'
 import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
+import { SortableTh } from '../../components/ui'
 import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 
 function ConnectionsTable({ connections, title, icon: Icon }) {
+  const { sortedData, sortBy, sortDir, handleSort } = useTableSort(connections ?? [], {
+    defaultSortBy: 'name',
+    getSortValue: (gw, key) => {
+      if (key === 'name') return gw.name ?? ''
+      if (key === 'num_connections') return gw.num_connections ?? 0
+      if (key === 'total_connections') return gw.total_connections ?? 0
+      if (key === 'status') return (gw.connection_attempts != null && gw.connection_attempts > 0) ? 'attempts' : 'connected'
+      return ''
+    },
+  })
+
   if (!connections || connections.length === 0) {
     return (
       <div className="rounded-lg border border-nats-border overflow-hidden">
@@ -27,14 +40,14 @@ function ConnectionsTable({ connections, title, icon: Icon }) {
       <table className="w-full text-sm">
         <thead className="bg-nats-card/60 border-b border-nats-border">
           <tr>
-            <th className="text-left p-3">Name</th>
-            <th className="text-left p-3">Num Connections</th>
-            <th className="text-left p-3">Total Connections</th>
-            <th className="text-left p-3">Status</th>
+            <SortableTh sortKey="name" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Name</SortableTh>
+            <SortableTh sortKey="num_connections" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Num Connections</SortableTh>
+            <SortableTh sortKey="total_connections" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Total Connections</SortableTh>
+            <SortableTh sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Status</SortableTh>
           </tr>
         </thead>
         <tbody>
-          {connections.map((gw) => (
+          {sortedData.map((gw) => (
             <tr key={gw.name} className="border-b border-nats-border hover:bg-nats-border/30">
               <td className="p-3 font-mono font-medium text-nats-accent">{gw.name}</td>
               <td className="p-3 font-mono">{gw.num_connections ?? 0}</td>

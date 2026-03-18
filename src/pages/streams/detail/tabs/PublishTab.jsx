@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStreamMutation } from '../../../../hooks/useStreamMutation'
+import { useTableSort } from '../../../../hooks/useTableSort'
+import { SortableTh } from '../../../../components/ui'
 import { Plus, Send, Clock, AlertCircle, X as XIcon } from 'lucide-react'
 
 const DELAY_OPTIONS = [
@@ -101,6 +103,17 @@ export function PublishTab({ stream }) {
   }
 
   const isScheduled = delayOption !== 0
+
+  const { sortedData: sortedPending, sortBy, sortDir, handleSort } = useTableSort(pending, {
+    defaultSortBy: 'scheduleAt',
+    getSortValue: (p, key) => {
+      if (key === 'subject') return p.subject ?? ''
+      if (key === 'payload') return p.payload ?? ''
+      if (key === 'scheduleAt') return p.scheduleAt ? new Date(p.scheduleAt).getTime() : 0
+      if (key === 'status') return p.status ?? ''
+      return ''
+    },
+  })
 
   return (
     <div className="space-y-5">
@@ -229,15 +242,15 @@ export function PublishTab({ stream }) {
             <table className="w-full text-sm">
               <thead className="bg-nats-card/60 border-b border-nats-border">
                 <tr>
-                  <th className="text-left p-3">Subject</th>
-                  <th className="text-left p-3">Payload preview</th>
-                  <th className="text-left p-3">Deliver at</th>
-                  <th className="text-left p-3">Status</th>
+                  <SortableTh sortKey="subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Subject</SortableTh>
+                  <SortableTh sortKey="payload" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Payload preview</SortableTh>
+                  <SortableTh sortKey="scheduleAt" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Deliver at</SortableTh>
+                  <SortableTh sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Status</SortableTh>
                   <th className="text-left p-3 w-12"></th>
                 </tr>
               </thead>
               <tbody>
-                {pending.map(p => (
+                {sortedPending.map(p => (
                   <tr key={p.id} className="border-b border-nats-border hover:bg-nats-border/20">
                     <td className="p-3 font-mono text-xs text-nats-accent">{p.subject}</td>
                     <td className="p-3 font-mono text-xs text-gray-400 max-w-[180px] truncate">

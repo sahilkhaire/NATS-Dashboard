@@ -1,6 +1,22 @@
+import { useTableSort } from '../../../../hooks/useTableSort'
 import { AlertBanner } from '../../../../components/AlertBanner'
+import { SortableTh } from '../../../../components/ui'
 
 export function ConsumersTab({ consumers }) {
+  const { sortedData, sortBy, sortDir, handleSort } = useTableSort(consumers, {
+    defaultSortBy: 'name',
+    getSortValue: (c, key) => {
+      if (key === 'name') return c.name ?? ''
+      if (key === 'type') return c.config?.durable_name ? 'Durable' : 'Ephemeral'
+      if (key === 'filter_subject') return c.config?.filter_subject || c.config?.filter_subjects?.join(',') || ''
+      if (key === 'pending') return c.num_pending ?? 0
+      if (key === 'ack_pending') return c.num_ack_pending ?? 0
+      if (key === 'redelivered') return c.num_redelivered ?? 0
+      if (key === 'deliver_policy') return c.config?.deliver_policy ?? ''
+      return ''
+    },
+  })
+
   if (consumers.length === 0) {
     return (
       <div className="rounded-lg border border-nats-border bg-nats-card p-8 text-center text-gray-400">
@@ -22,17 +38,17 @@ export function ConsumersTab({ consumers }) {
         <table className="w-full text-sm">
           <thead className="bg-nats-card border-b border-nats-border">
             <tr>
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Type</th>
-              <th className="text-left p-3">Filter Subject</th>
-              <th className="text-left p-3">Pending</th>
-              <th className="text-left p-3">Ack Pending</th>
-              <th className="text-left p-3">Redelivered</th>
-              <th className="text-left p-3">Deliver Policy</th>
+              <SortableTh sortKey="name" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Name</SortableTh>
+              <SortableTh sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Type</SortableTh>
+              <SortableTh sortKey="filter_subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Filter Subject</SortableTh>
+              <SortableTh sortKey="pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Pending</SortableTh>
+              <SortableTh sortKey="ack_pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Pending</SortableTh>
+              <SortableTh sortKey="redelivered" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Redelivered</SortableTh>
+              <SortableTh sortKey="deliver_policy" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Deliver Policy</SortableTh>
             </tr>
           </thead>
           <tbody>
-            {consumers.map(c => (
+            {sortedData.map(c => (
               <tr key={c.name} className="border-b border-nats-border hover:bg-nats-border/30">
                 <td className="p-3 font-mono font-medium text-nats-accent">{c.name}</td>
                 <td className="p-3">
