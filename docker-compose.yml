@@ -11,7 +11,7 @@
 
 services:
   dashboard:
-    image: sahilkhaire/nats-dashboard:${DASHBOARD_VERSION:-0.0.6}
+    image: sahilkhaire/nats-dashboard:${DASHBOARD_VERSION:-0.0.7}
     build:
       context: .
       dockerfile: Dockerfile
