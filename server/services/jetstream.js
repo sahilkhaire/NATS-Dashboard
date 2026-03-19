@@ -40,7 +40,8 @@ export async function fetchStreamMessages(nc, streamName, opts = {}) {
     consumerConfig.opt_start_seq  = startFrom
   }
 
-  const createResp = await natsRequest(nc, `$JS.API.CONSUMER.CREATE.${streamName}`, consumerConfig)
+  const createPayload = { stream_name: streamName, config: consumerConfig }
+  const createResp = await natsRequest(nc, `$JS.API.CONSUMER.CREATE.${streamName}`, createPayload)
   if (createResp.error) throw new Error(createResp.error.description || 'Failed to create consumer')
   const consumerName = createResp.name
 

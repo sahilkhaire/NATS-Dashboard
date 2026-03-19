@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Settings, Server, Heart, ChevronDown, LogOut } from 'lucide-react'
+import { Settings, Server, Heart, ChevronDown, LogOut, GitMerge, ServerCog } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { useAuth } from '../../context/AuthContext'
 import { SettingsModal } from '../modals/SettingsModal'
@@ -8,7 +8,7 @@ import { useNatsPolling } from '../../hooks/useNatsPolling'
 import { useNatsContexts } from '../../hooks/useNatsContexts'
 import { getLastConnection } from '../../hooks/useSavedConnections'
 
-export function Header({ serverName, lastUpdated }) {
+export function Header({ serverName, lastUpdated, serverMode }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const { serverUrl, selectedContext, setServerUrl, setSelectedContext, setAuthToken } = useConfig()
@@ -57,6 +57,28 @@ export function Header({ serverName, lastUpdated }) {
             <Heart size={12} className="inline mr-1" />
             {healthy ? 'HEALTHY' : 'UNREACHABLE'}
           </StatusBadge>
+          {serverMode && (
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                serverMode.type === 'cluster'
+                  ? 'bg-nats-accent/20 text-nats-accent border border-nats-accent/30'
+                  : 'bg-nats-border/50 text-nats-text-secondary border border-nats-border'
+              }`}
+              title={serverMode.type === 'cluster' ? `Cluster: ${serverMode.clusterName || `${serverMode.routes} routes`}` : 'Standalone mode'}
+            >
+              {serverMode.type === 'cluster' ? (
+                <>
+                  <GitMerge size={12} />
+                  Cluster{serverMode.routes > 0 ? ` (${serverMode.routes})` : ''}
+                </>
+              ) : (
+                <>
+                  <ServerCog size={12} />
+                  Standalone
+                </>
+              )}
+            </span>
+          )}
           {contexts.length > 0 && (
             <div className="relative">
               <button

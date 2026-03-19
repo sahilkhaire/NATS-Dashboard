@@ -2,8 +2,9 @@ import { useNatsPolling } from '../../hooks/useNatsPolling'
 import { useTableSort } from '../../hooks/useTableSort'
 import { AlertBanner } from '../../components/AlertBanner'
 import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
+import { EmptyState } from '../../components/shared/EmptyState'
 import { SortableTh } from '../../components/ui'
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Globe } from 'lucide-react'
 
 function ConnectionsTable({ connections, title, icon: Icon }) {
   const { sortedData, sortBy, sortDir, handleSort } = useTableSort(connections ?? [], {
@@ -86,6 +87,8 @@ export function GatewayPage() {
     ? Object.entries(data.outbound_gateways).map(([name, info]) => ({ name, ...info }))
     : []
 
+  const hasGateways = inbound.length > 0 || outbound.length > 0
+
   return (
     <div className="p-6 space-y-5">
       <div className="rounded-lg border border-nats-border bg-nats-card p-4">
@@ -109,8 +112,21 @@ export function GatewayPage() {
         </div>
       </div>
 
-      <ConnectionsTable connections={outbound} title="Outbound Gateways" icon={ArrowUpFromLine} />
-      <ConnectionsTable connections={inbound} title="Inbound Gateways" icon={ArrowDownToLine} />
+      {!hasGateways ? (
+        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
+          <EmptyState
+            icon={Globe}
+            title="No gateways configured"
+            description="This NATS server is not part of a supercluster. Gateways connect separate NATS clusters into a supercluster (e.g., across data centers)."
+            hint="Configure gateways in your NATS config to connect multiple clusters."
+          />
+        </div>
+      ) : (
+        <>
+          <ConnectionsTable connections={outbound} title="Outbound Gateways" icon={ArrowUpFromLine} />
+          <ConnectionsTable connections={inbound} title="Inbound Gateways" icon={ArrowDownToLine} />
+        </>
+      )}
     </div>
   )
 }

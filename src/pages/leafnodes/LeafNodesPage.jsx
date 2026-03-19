@@ -2,7 +2,9 @@ import { useNatsPolling } from '../../hooks/useNatsPolling'
 import { useTableSort } from '../../hooks/useTableSort'
 import { AlertBanner } from '../../components/AlertBanner'
 import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
+import { EmptyState } from '../../components/shared/EmptyState'
 import { SortableTh } from '../../components/ui'
+import { Leaf } from 'lucide-react'
 
 export function LeafNodesPage() {
   const { data, error } = useNatsPolling('/leafz', 5000)
@@ -22,6 +24,21 @@ export function LeafNodesPage() {
   if (data?._unavailable) return <NatsProtocolNotice endpoint="leafz" />
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
   if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
+
+  if (leafs.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
+          <EmptyState
+            icon={Leaf}
+            title="No leaf nodes connected"
+            description="Leaf nodes are lightweight NATS servers that bridge to this hub. They're often used for edge computing, remote offices, or IoT devices."
+            hint="Configure leaf nodes in your NATS config to connect remote NATS instances."
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-4">

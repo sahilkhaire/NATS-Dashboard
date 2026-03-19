@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ConfigProvider }   from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -6,6 +6,7 @@ import { ThemeProvider }   from './context/ThemeContext'
 import { LoginScreen }      from './components/shared/LoginScreen'
 import { Sidebar }          from './components/layout/Sidebar'
 import { Header }           from './components/layout/Header'
+import { useNatsPolling }   from './hooks/useNatsPolling'
 import { OverviewPage }     from './pages/overview/OverviewPage'
 import { ConnectionsPage }  from './pages/connections/ConnectionsPage'
 import { JetStreamPage }    from './pages/jetstream/JetStreamPage'
@@ -22,17 +23,29 @@ import { HealthPage }       from './pages/health/HealthPage'
 function AppContent() {
   const [serverName,   setServerName]   = useState('NATS Dashboard')
   const [lastUpdated,  setLastUpdated]  = useState(null)
+  const { data: varz } = useNatsPolling('/varz', 5000)
 
-  const handleOverviewData = ({ varz, lastFetch }) => {
-    if (varz?.server_name) setServerName(varz.server_name)
-    if (lastFetch)          setLastUpdated(lastFetch)
+  const serverMode = useMemo(() => {
+    if (!varz) return null
+    const routes = varz.routes ?? varz.remotes ?? 0
+    const isCluster = routes > 0 || varz.cluster?.name
+    return {
+      type: isCluster ? 'cluster' : 'standalone',
+      routes,
+      clusterName: varz.cluster?.name,
+    }
+  }, [varz])
+
+  const handleOverviewData = ({ varz: v, lastFetch }) => {
+    if (v?.server_name) setServerName(v.server_name)
+    if (lastFetch)      setLastUpdated(lastFetch)
   }
 
   return (
     <div className="min-h-screen bg-nats-bg">
       <Sidebar />
       <div className="pl-60">
-        <Header serverName={serverName} lastUpdated={lastUpdated} />
+        <Header serverName={serverName} lastUpdated={lastUpdated} serverMode={serverMode} />
         <main className="min-h-[calc(100vh-4rem)]">
           <Routes>
             <Route path="/"            element={<OverviewPage onData={handleOverviewData} />} />

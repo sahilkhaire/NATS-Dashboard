@@ -3,7 +3,9 @@ import { useTableSort } from '../../hooks/useTableSort'
 import { formatBytes } from '../../utils/byteFormatter'
 import { AlertBanner } from '../../components/AlertBanner'
 import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
+import { EmptyState } from '../../components/shared/EmptyState'
 import { SortableTh } from '../../components/ui'
+import { GitMerge, ServerCog } from 'lucide-react'
 
 export function ClusterPage() {
   const { data, error } = useNatsPolling('/routez', 5000)
@@ -25,9 +27,28 @@ export function ClusterPage() {
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
   if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
 
+  if (routes.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
+          <EmptyState
+            icon={ServerCog}
+            title="Standalone mode"
+            description="This NATS server is running standalone with no cluster routes. Cluster routes appear when you connect multiple NATS servers in a cluster."
+            hint="To run in cluster mode, configure multiple NATS servers with route URLs."
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="rounded-lg border border-nats-border overflow-hidden">
+        <div className="px-4 py-2.5 bg-nats-card border-b border-nats-border flex items-center gap-2">
+          <GitMerge size={14} className="text-nats-accent" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Cluster routes ({routes.length})</span>
+        </div>
         <table className="w-full text-sm">
           <thead className="bg-nats-card border-b border-nats-border">
             <tr>
@@ -40,7 +61,7 @@ export function ClusterPage() {
           </thead>
           <tbody>
             {sortedRoutes.map((r) => (
-              <tr key={r.remote_id} className="border-b border-nats-border">
+              <tr key={r.rid ?? `${r.remote_id}-${r.ip}-${r.port}`} className="border-b border-nats-border">
                 <td className="p-3 font-mono">{r.remote_id}</td>
                 <td className="p-3">{r.ip}:{r.port}</td>
                 <td className="p-3 font-mono">{(r.in_msgs ?? 0).toLocaleString()}</td>

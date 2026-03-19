@@ -1,6 +1,6 @@
 # NATS Dashboard
 
-A monitoring dashboard for NATS servers — connections, JetStream streams/consumers, cluster routes, and more.
+A monitoring dashboard for NATS servers — connections, JetStream streams/consumers, cluster routes, and more. Supports both **standalone** and **cluster** NATS deployments with full visibility when using HTTP monitoring.
 
 ## Quick Start
 
@@ -76,6 +76,17 @@ Or use the Dockerfile for a static nginx deployment.
 - **NATS Context:** If you use `nats context`, those appear in the connections dropdown alongside saved connections.
 - **Settings (gear icon):** Change NATS URL, token, and poll interval. Manual URL overrides the selected connection.
 - **Environment:** `VITE_NATS_URL` sets the default NATS monitoring URL (e.g. `http://nats:8222` in Docker)
+
+### Standalone vs Cluster
+
+The dashboard works with both deployment modes:
+
+| Mode | What you see |
+|------|--------------|
+| **Standalone** | Single server. Cluster/Gateways/Leaf pages show empty states. Full server stats when using HTTP monitoring. |
+| **Cluster** | Header shows "Cluster (N)". Cluster page lists route connections. Topology shows routes, remotes. |
+
+**Full picture:** Add connections with `http://host:8222` (HTTP monitoring). Using `nats://host:4222` gives JetStream data but not connections, cluster routes, subscriptions, or CPU/memory.
 
 ### NATS Context integration
 

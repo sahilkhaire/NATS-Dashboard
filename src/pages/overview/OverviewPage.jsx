@@ -369,9 +369,16 @@ export function OverviewPage({ onData }) {
 
         {/* Topology */}
         <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-nats-border flex items-center gap-2">
-            <Network size={13} className="text-nats-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Topology</span>
+          <div className="px-4 py-2.5 border-b border-nats-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Network size={13} className="text-nats-accent" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Topology</span>
+            </div>
+            {(varz.routes ?? varz.remotes ?? 0) > 0 || varz.cluster?.name ? (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-nats-accent/20 text-nats-accent font-medium">Cluster</span>
+            ) : (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-nats-border/50 text-nats-text-muted font-medium">Standalone</span>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-0 divide-x divide-nats-border divide-y">
             {[
