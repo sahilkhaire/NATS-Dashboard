@@ -102,7 +102,7 @@ export function ConsumersPage() {
     },
   })
 
-  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedConsumers, 25)
+  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedConsumers, 10)
 
   const lagging = consumers.filter(c => (c.num_pending ?? 0) > 1000 || (c.num_ack_pending ?? 0) > 0)
 

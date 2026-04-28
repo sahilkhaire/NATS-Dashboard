@@ -165,7 +165,7 @@ export function StreamsPage() {
   })
 
   // ── Pagination ──
-  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedStreams, 25)
+  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedStreams, 10)
 
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
   if (!data) return <div className="p-6 text-muted-foreground">Loading...</div>
@@ -470,7 +470,7 @@ export function StreamsPage() {
           pageSize={pageSize}
           onPage={setPage}
           onPageSize={setPageSize}
-          pageSizes={[25, 50, 100, 250]}
+          pageSizes={[10, 25, 50, 100, 250]}
         />
       )}
 

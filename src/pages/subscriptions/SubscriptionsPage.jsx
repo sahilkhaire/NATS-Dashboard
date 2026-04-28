@@ -77,7 +77,7 @@ export function SubscriptionsPage() {
     },
   })
 
-  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedData, 25)
+  const { pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize } = usePagination(sortedData, 10)
 
   const handleFilterChange = (f) => {
     setFilter(f)

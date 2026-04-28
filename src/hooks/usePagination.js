@@ -6,7 +6,7 @@ import { useState, useMemo, useEffect } from 'react'
  * @param {number} defaultPageSize - Initial rows per page
  * @returns {{ pagedData, page, pageSize, totalPages, totalItems, setPage, setPageSize }}
  */
-export function usePagination(data, defaultPageSize = 25) {
+export function usePagination(data, defaultPageSize = 10) {
   const [page, setPageRaw] = useState(1)
   const [pageSize, setPageSizeRaw] = useState(defaultPageSize)
 

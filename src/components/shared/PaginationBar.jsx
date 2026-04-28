@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../ui/button'
 
-export function PaginationBar({ page, totalPages, totalItems, pageSize, onPage, onPageSize, pageSizes = [25, 50, 100] }) {
+export function PaginationBar({ page, totalPages, totalItems, pageSize, onPage, onPageSize, pageSizes = [10, 25, 50, 100] }) {
   const pages = []
   const radius = 2
   for (let i = 1; i <= totalPages; i += 1) {
