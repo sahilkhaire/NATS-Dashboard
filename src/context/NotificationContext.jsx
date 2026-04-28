@@ -8,6 +8,10 @@ const NotificationContext = createContext(null)
 const TOAST_TIMEOUT_MS = 4500
 const MAX_NOTIFICATIONS = 100
 
+function getNotificationKey(item = {}) {
+  return [item.level || 'info', item.title || '', item.message || '', item.source || 'app'].join('::')
+}
+
 function buildNotification(partial = {}) {
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -140,7 +144,8 @@ export function NotificationProvider({ children }) {
 
   const pushNotification = useCallback((partial) => {
     const item = buildNotification(partial)
-    setNotifications((prev) => [item, ...prev].slice(0, MAX_NOTIFICATIONS))
+    const key = getNotificationKey(item)
+    setNotifications((prev) => [item, ...prev.filter((n) => getNotificationKey(n) !== key)].slice(0, MAX_NOTIFICATIONS))
     return item
   }, [])
 
