@@ -1,8 +1,12 @@
 import { RefreshCw } from 'lucide-react'
 
 const OPTIONS = [
+  { label: '1s',  value: 1000 },
+  { label: '2s',  value: 2000 },
+  { label: '3s',  value: 3000 },
   { label: '5s',  value: 5000 },
   { label: '10s', value: 10000 },
+  { label: '15s', value: 15000 },
   { label: '30s', value: 30000 },
 ]
 
@@ -19,7 +23,7 @@ export function RefreshSelector({ interval, onChange, lastFetch }) {
     : 'waiting…'
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <RefreshCw size={14} className="text-nats-text-muted" />
       <span className="text-xs text-nats-text-muted hidden sm:inline">Refresh:</span>
       <div className="flex rounded border border-nats-border overflow-hidden text-xs">

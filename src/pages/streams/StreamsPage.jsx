@@ -4,6 +4,7 @@ import { useStreamMutation } from '../../hooks/useStreamMutation'
 import { useTableSort } from '../../hooks/useTableSort'
 import { usePagination } from '../../hooks/usePagination'
 import { useStreamRates } from '../../hooks/useStreamRates'
+import { useStreamTimeseries } from '../../hooks/useStreamTimeseries'
 import { Link } from 'react-router-dom'
 import { formatBytes } from '../../utils/byteFormatter'
 import { normalizeRetention } from '../../utils/retention'
@@ -12,6 +13,7 @@ import { SortableTh } from '../../components/ui'
 import { AlertBanner } from '../../components/AlertBanner'
 import { RefreshSelector } from '../../components/RefreshSelector'
 import { UpdateStreamModal } from '../../components/UpdateStreamModal'
+import { StreamSparkline } from './components/StreamSparkline'
 import { Settings, Trash2, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react'
 
 // ─── Column group config ─────────────────────────────────────────────────────
@@ -21,7 +23,6 @@ const GROUPS = [
     label: 'Messages',
     defaultVisible: true,
     cols: [
-      { key: 'messages',     label: 'Total' },
       { key: 'first_seq',    label: 'First Seq' },
       { key: 'last_seq',     label: 'Last Seq' },
       { key: 'num_subjects', label: 'Subjects' },
@@ -38,10 +39,11 @@ const GROUPS = [
   {
     id: 'rates',
     label: 'Message Rates',
-    defaultVisible: false,
+    defaultVisible: true,
     cols: [
       { key: 'msgs_per_sec',  label: 'Msgs/s' },
       { key: 'bytes_per_sec', label: 'Bytes/s' },
+      { key: 'traffic', label: 'Traffic' },
     ],
   },
   {
@@ -134,6 +136,7 @@ export function StreamsPage() {
   const [refreshInterval, setRefreshInterval] = useState(5000)
   const [updateStreamName, setUpdateStreamName] = useState(null)
   const [actionError, setActionError] = useState('')
+  const [sparklineMetric, setSparklineMetric] = useState('msgsPerSec')
 
   // ── Filter state ──
   const [search, setSearch] = useState('')
@@ -169,6 +172,7 @@ export function StreamsPage() {
   }, [data])
 
   const rates = useStreamRates(streams)
+  const timeseriesByName = useStreamTimeseries(streams, { maxPoints: 60 })
 
   // ── Filter ──
   const filtered = useMemo(() => {
@@ -209,6 +213,10 @@ export function StreamsPage() {
       if (key === 'consumers')    return s.state?.consumer_count ?? 0
       if (key === 'msgs_per_sec') return rates.get(s.name)?.msgsPerSec ?? 0
       if (key === 'bytes_per_sec') return rates.get(s.name)?.bytesPerSec ?? 0
+      if (key === 'traffic') {
+        const points = timeseriesByName.get(s.name) ?? []
+        return points[points.length - 1]?.[sparklineMetric] ?? 0
+      }
       return ''
     },
   })
@@ -302,6 +310,29 @@ export function StreamsPage() {
             {totalItems} of {streams.length} shown
           </span>
         )}
+        <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
+          <span>Traffic sparkline:</span>
+          <button
+            onClick={() => setSparklineMetric('msgsPerSec')}
+            className={`px-2 py-1 rounded border transition-colors ${
+              sparklineMetric === 'msgsPerSec'
+                ? 'border-nats-accent/40 text-nats-accent'
+                : 'border-nats-border text-gray-400 hover:text-white'
+            }`}
+          >
+            Msg/s
+          </button>
+          <button
+            onClick={() => setSparklineMetric('bytesPerSec')}
+            className={`px-2 py-1 rounded border transition-colors ${
+              sparklineMetric === 'bytesPerSec'
+                ? 'border-nats-accent/40 text-nats-accent'
+                : 'border-nats-border text-gray-400 hover:text-white'
+            }`}
+          >
+            Bytes/s
+          </button>
+        </div>
       </div>
 
       {actionError && (
@@ -317,7 +348,7 @@ export function StreamsPage() {
           <thead>
             <tr className="bg-nats-bg border-b border-nats-border">
               {/* Core columns: Name + Subjects + Retention + Storage = 4, no group label */}
-              <th colSpan={4} className="p-0" />
+              <th colSpan={5} className="p-0" />
 
               {visibleGroups.map(g => (
                 <th
@@ -363,6 +394,7 @@ export function StreamsPage() {
               <SortableTh sortKey="subjects" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Subjects</SortableTh>
               <SortableTh sortKey="retention" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Retention</SortableTh>
               <SortableTh sortKey="storage" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Storage</SortableTh>
+              <SortableTh sortKey="messages" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Total Msgs</SortableTh>
 
               {/* Dynamic group columns */}
               {visibleGroups.map((g, gi) =>
@@ -387,7 +419,7 @@ export function StreamsPage() {
           <tbody>
             {pagedData.length === 0 ? (
               <tr>
-                <td colSpan={4 + visibleCols.length + 1} className="p-8 text-center text-gray-500">
+                <td colSpan={5 + visibleCols.length + 1} className="p-8 text-center text-gray-500">
                   {streams.length === 0 ? 'No streams found.' : 'No streams match the current filter.'}
                 </td>
               </tr>
@@ -413,18 +445,26 @@ export function StreamsPage() {
                   </td>
                   <td className="p-3"><StatusBadge status="info">{normalizeRetention(s.config?.retention)}</StatusBadge></td>
                   <td className="p-3 text-gray-300">{s.config?.storage ?? 'file'}</td>
+                  <td className="p-3 font-mono font-semibold">{(s.state?.messages ?? 0).toLocaleString()}</td>
 
                   {/* ── Dynamic group columns ── */}
                   {visibleGroups.map((g, gi) =>
                     g.cols.map((col, ci) => {
                       const borderClass = ci === 0 ? 'border-l border-nats-border' : ''
-                      if (col.key === 'messages') return <td key={col.key} className={`p-3 font-mono font-semibold ${borderClass}`}>{(s.state?.messages ?? 0).toLocaleString()}</td>
                       if (col.key === 'first_seq') return <td key={col.key} className={`p-3 font-mono text-gray-400 ${borderClass}`}>{(s.state?.first_seq ?? 0).toLocaleString()}</td>
                       if (col.key === 'last_seq') return <td key={col.key} className={`p-3 font-mono text-gray-400 ${borderClass}`}>{(s.state?.last_seq ?? 0).toLocaleString()}</td>
                       if (col.key === 'num_subjects') return <td key={col.key} className={`p-3 font-mono ${borderClass}`}>{(s.state?.num_subjects ?? 0).toLocaleString()}</td>
                       if (col.key === 'bytes') return <td key={col.key} className={`p-3 ${borderClass}`}>{formatBytes(s.state?.bytes)}</td>
                       if (col.key === 'msgs_per_sec') return <td key={col.key} className={`p-3 font-mono ${borderClass}`}>{formatRate(r?.msgsPerSec)}</td>
                       if (col.key === 'bytes_per_sec') return <td key={col.key} className={`p-3 font-mono ${borderClass}`}>{r?.bytesPerSec != null ? formatBytes(r.bytesPerSec) + '/s' : '—'}</td>
+                      if (col.key === 'traffic') {
+                        const points = timeseriesByName.get(s.name) ?? []
+                        return (
+                          <td key={col.key} className={`p-3 ${borderClass}`}>
+                            <StreamSparkline points={points} metric={sparklineMetric} />
+                          </td>
+                        )
+                      }
                       if (col.key === 'consumers') return <td key={col.key} className={`p-3 ${borderClass}`}>{s.state?.consumer_count ?? 0}</td>
                       return <td key={col.key} className={`p-3 ${borderClass}`}>—</td>
                     })

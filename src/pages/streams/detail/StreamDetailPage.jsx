@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useNatsPolling }    from '../../../hooks/useNatsPolling'
+import { useStreamTimeseries } from '../../../hooks/useStreamTimeseries'
 import { normalizeRetention } from '../../../utils/retention'
 import { useStreamMutation } from '../../../hooks/useStreamMutation'
 import { AlertBanner }       from '../../../components/AlertBanner'
 import { RefreshSelector }   from '../../../components/RefreshSelector'
 import { Trash2, ChevronLeft } from 'lucide-react'
 
+import { AnalyticsTab }  from './tabs/AnalyticsTab'
 import { PropertiesTab } from './tabs/PropertiesTab'
 import { ConsumersTab }  from './tabs/ConsumersTab'
 import { MessagesTab }   from './tabs/MessagesTab'
@@ -23,12 +25,15 @@ export function StreamDetailPage() {
 
   const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
   const { deleteStream, updateStream, purgeStream } = useStreamMutation()
+  const accountDetails = data?.account_details ?? []
+  const allStreams = accountDetails.flatMap(acc => acc.stream_detail ?? [])
+  const timeseriesByName = useStreamTimeseries(allStreams, { maxPoints: 90 })
 
   if (error)  return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
   if (!data)  return <div className="p-6 text-gray-400">Loading...</div>
 
   let stream = null
-  for (const acc of data.account_details ?? []) {
+  for (const acc of accountDetails) {
     for (const sd of acc.stream_detail ?? []) {
       if (sd.name === name) { stream = sd; break }
     }
@@ -37,7 +42,7 @@ export function StreamDetailPage() {
   if (!stream) return <div className="p-6 text-gray-400">Stream not found.</div>
 
   const consumers = stream.consumer_detail ?? []
-  const allStreams = (data.account_details ?? []).flatMap(acc => acc.stream_detail ?? [])
+  const streamSeries = timeseriesByName.get(stream.name) ?? []
 
   const handleDelete = async () => {
     if (!confirm(`Delete stream "${stream.name}" and ALL its data? This cannot be undone.`)) return
@@ -56,6 +61,7 @@ export function StreamDetailPage() {
   }
 
   const tabs = [
+    { id: 'analytics', label: 'Analytics' },
     { id: 'properties', label: 'Properties' },
     { id: 'consumers',  label: `Consumers${consumers.length > 0 ? ` (${consumers.length})` : ''}` },
     { id: 'messages',   label: 'Messages' },
@@ -107,6 +113,7 @@ export function StreamDetailPage() {
         ))}
       </div>
 
+      {activeTab === 'analytics'  && <AnalyticsTab points={streamSeries} refreshInterval={refreshInterval} />}
       {activeTab === 'properties' && <PropertiesTab stream={stream} onUpdate={handleUpdate} />}
       {activeTab === 'consumers'  && <ConsumersTab  consumers={consumers} />}
       {activeTab === 'messages'   && <MessagesTab   stream={stream} />}
