@@ -21,6 +21,7 @@ import { GatewayPage }      from './pages/gateway/GatewayPage'
 import { LeafNodesPage }    from './pages/leafnodes/LeafNodesPage'
 import { AccountsPage }     from './pages/accounts/AccountsPage'
 import { HealthPage }       from './pages/health/HealthPage'
+import { CliPage }          from './pages/cli/CliPage'
 
 function AppContent() {
   const [serverName,   setServerName]   = useState('NATS Dashboard')
@@ -62,6 +63,7 @@ function AppContent() {
             <Route path="/leaf-nodes"  element={<LeafNodesPage />} />
             <Route path="/accounts"    element={<AccountsPage />} />
             <Route path="/health"      element={<HealthPage />} />
+            <Route path="/cli"         element={<CliPage />} />
           </Routes>
         </main>
       </SidebarInset>

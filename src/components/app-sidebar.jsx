@@ -10,6 +10,7 @@ import {
   Leaf,
   Network,
   Server,
+  TerminalSquare,
   Waves,
 } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
@@ -100,6 +101,16 @@ const data = {
           title: "Accounts",
           url: "/accounts",
           icon: FileText,
+        },
+      ],
+    },
+    {
+      title: "Tools",
+      items: [
+        {
+          title: "CLI",
+          url: "/cli",
+          icon: TerminalSquare,
         },
       ],
     },

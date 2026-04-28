@@ -7,6 +7,31 @@ import { RefreshSelector } from '../../components/RefreshSelector'
 import { SortableTh } from '../../components/ui'
 import { PaginationBar } from '../../components/shared/PaginationBar'
 
+const formatFloor = (floor) => {
+  if (!floor) return '—'
+  return (floor.stream_seq ?? floor.consumer_seq ?? 0).toLocaleString()
+}
+
+const formatPausedUntil = (consumer) => {
+  if (!consumer?.paused) return '—'
+  const raw =
+    consumer.pause_remaining ??
+    consumer.paused_until ??
+    consumer.pause_until ??
+    consumer.config?.pause_until
+  if (!raw) return 'Paused'
+  if (typeof raw === 'number') return `${raw.toLocaleString()}ns`
+  const parsed = Date.parse(raw)
+  if (Number.isNaN(parsed)) return String(raw)
+  return new Date(parsed).toLocaleString()
+}
+
+const metricColorClass = (value, warnAt, dangerAt) => {
+  if (value >= dangerAt) return 'text-nats-error'
+  if (value >= warnAt) return 'text-nats-warn'
+  return 'text-muted-foreground'
+}
+
 export function ConsumersPage() {
   const [refreshInterval, setRefreshInterval] = useState(5000)
   const { data, error, lastFetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
@@ -64,12 +89,15 @@ export function ConsumersPage() {
     getSortValue: (c, key) => {
       if (key === 'stream')       return c.stream ?? ''
       if (key === 'consumer')     return c.name ?? ''
+      if (key === 'filter_subjects') return c.config?.filter_subject || c.config?.filter_subjects?.join(',') || ''
       if (key === 'ack_policy')   return c.config?.ack_policy ?? ''
       if (key === 'deliver_policy') return c.config?.deliver_policy ?? ''
       if (key === 'pending')      return c.num_pending ?? 0
       if (key === 'ack_pending')  return c.num_ack_pending ?? 0
+      if (key === 'ack_floor')    return c.ack_floor?.consumer_seq ?? 0
       if (key === 'redelivered')  return c.num_redelivered ?? 0
       if (key === 'num_waiting')  return c.num_waiting ?? 0
+      if (key === 'paused_until') return c.paused ? 1 : 0
       return ''
     },
   })
@@ -142,18 +170,21 @@ export function ConsumersPage() {
             <tr>
               <SortableTh sortKey="stream" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Stream</SortableTh>
               <SortableTh sortKey="consumer" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Consumer</SortableTh>
+              <SortableTh sortKey="filter_subjects" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Filter Subjects</SortableTh>
+              <SortableTh sortKey="ack_floor" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Floor</SortableTh>
               <SortableTh sortKey="ack_policy" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Policy</SortableTh>
               <SortableTh sortKey="deliver_policy" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Deliver Policy</SortableTh>
-              <SortableTh sortKey="pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Pending</SortableTh>
-              <SortableTh sortKey="ack_pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Pending</SortableTh>
-              <SortableTh sortKey="redelivered" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Redelivered</SortableTh>
-              <SortableTh sortKey="num_waiting" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Waiting</SortableTh>
+              <SortableTh sortKey="pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Unprocessed Msgs</SortableTh>
+              <SortableTh sortKey="ack_pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Outstanding Acks</SortableTh>
+              <SortableTh sortKey="redelivered" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Redelivered Msgs</SortableTh>
+              <SortableTh sortKey="num_waiting" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Waiting Clients</SortableTh>
+              <SortableTh sortKey="paused_until" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Paused Until</SortableTh>
             </tr>
           </thead>
           <tbody>
             {pagedData.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                <td colSpan={12} className="p-8 text-center text-muted-foreground">
                   {consumers.length === 0 ? 'No consumers found.' : 'No consumers match the current filter.'}
                 </td>
               </tr>
@@ -161,12 +192,19 @@ export function ConsumersPage() {
               <tr key={`${c.stream}-${c.name}`}>
                 <td className="p-3 font-mono text-muted-foreground">{c.stream}</td>
                 <td className="p-3 font-mono font-medium text-foreground">{c.name}</td>
+                <td className="p-3 font-mono text-xs text-muted-foreground">
+                  {c.config?.filter_subject || c.config?.filter_subjects?.join(', ') || '—'}
+                </td>
+                <td className="p-3 font-mono text-muted-foreground">{formatFloor(c.ack_floor)}</td>
                 <td className="p-3 text-xs text-muted-foreground">{c.config?.ack_policy ?? '—'}</td>
                 <td className="p-3 text-xs text-muted-foreground">{c.config?.deliver_policy ?? '—'}</td>
-                <td className={`p-3 font-mono ${(c.num_pending ?? 0) > 1000 ? 'text-foreground' : ''}`}>{(c.num_pending ?? 0).toLocaleString()}</td>
-                <td className={`p-3 font-mono ${(c.num_ack_pending ?? 0) > 0 ? 'text-foreground' : ''}`}>{(c.num_ack_pending ?? 0).toLocaleString()}</td>
-                <td className={`p-3 font-mono ${(c.num_redelivered ?? 0) > 0 ? 'text-foreground' : ''}`}>{c.num_redelivered ?? 0}</td>
-                <td className="p-3 font-mono text-muted-foreground">{c.num_waiting ?? 0}</td>
+                <td className={`p-3 font-mono ${metricColorClass(c.num_pending ?? 0, 100, 1000)}`}>{(c.num_pending ?? 0).toLocaleString()}</td>
+                <td className={`p-3 font-mono ${metricColorClass(c.num_ack_pending ?? 0, 1, 100)}`}>
+                  {(c.num_ack_pending ?? 0).toLocaleString()}
+                </td>
+                <td className={`p-3 font-mono ${metricColorClass(c.num_redelivered ?? 0, 1, 50)}`}>{c.num_redelivered ?? 0}</td>
+                <td className={`p-3 font-mono ${metricColorClass(c.num_waiting ?? 0, 1, 100)}`}>{(c.num_waiting ?? 0).toLocaleString()}</td>
+                <td className="p-3 text-xs text-muted-foreground">{formatPausedUntil(c)}</td>
               </tr>
             ))}
           </tbody>

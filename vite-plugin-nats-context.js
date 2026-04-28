@@ -16,6 +16,7 @@ import { fetchStreamMessages }              from './server/services/jetstream.js
 import { schedules, createSchedule, serializeSchedule } from './server/services/schedule.js'
 import { scheduledPublishes, executePublish, schedulePublish, serializePublish } from './server/services/publish.js'
 import { readJsonBody }                     from './server/utils/http.js'
+import { runNatsCommand, validateAndParseNatsCommand } from './server/services/cli.js'
 
 // ─── Dev-only auth (mirrors server/middleware/auth.js logic inline) ───────────
 
@@ -385,6 +386,29 @@ export function natsContextPlugin() {
               ? 'Permission denied. System account not enabled for this token.'
               : err.message || 'NATS query failed'
           res.end(JSON.stringify({ error: msg, hint: 'NATS_ERROR' }))
+        }
+      })
+
+      // ── CLI ───────────────────────────────────────────────────────────────────
+
+      server.middlewares.use('/api/cli/nats', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const validation = validateAndParseNatsCommand(body?.command)
+          if (!validation.valid) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ ok: false, validationError: validation.error }))
+            return
+          }
+          const result = await runNatsCommand(validation.args)
+          res.statusCode = 200
+          res.end(JSON.stringify(result))
+        } catch (err) {
+          res.statusCode = 500
+          res.end(JSON.stringify({ ok: false, error: err.message || 'Failed to run command.' }))
         }
       })
     },
