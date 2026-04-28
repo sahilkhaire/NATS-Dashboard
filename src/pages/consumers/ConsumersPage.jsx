@@ -33,7 +33,7 @@ const metricColorClass = (value, warnAt, dangerAt) => {
 }
 
 export function ConsumersPage() {
-  const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [refreshInterval, setRefreshInterval] = useState(2000)
   const { data, error, lastFetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
 
   // ── Filter state ──

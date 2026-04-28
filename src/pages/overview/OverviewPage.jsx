@@ -110,7 +110,7 @@ export function OverviewPage({ onData }) {
   const { pushNotification } = useNotifications()
   const { data: varz, error, lastFetch } = useNatsPolling('/varz', pollInterval)
   const { data: jsz }  = useNatsPolling('/jsz', 3000)
-  const { data: healthData } = useNatsPolling('/healthz', 5000)
+  const { data: healthData } = useNatsPolling('/healthz', 2000)
 
   const [history, setHistory] = useState([])
   const prevRef = useRef(null)

@@ -135,7 +135,10 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {data.groups.map((group) => (
+        {data.groups
+          // Temporarily hide Infrastructure group from sidebar menu.
+          .filter((group) => group.title !== "Infrastructure")
+          .map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarMenu>

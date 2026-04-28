@@ -8,7 +8,7 @@ import { SortableTh } from '../../components/ui'
 import { GitMerge, ServerCog } from 'lucide-react'
 
 export function ClusterPage() {
-  const { data, error } = useNatsPolling('/routez', 5000)
+  const { data, error } = useNatsPolling('/routez', 2000)
 
   const routes = data?.routes ?? []
   const { sortedData: sortedRoutes, sortBy, sortDir, handleSort } = useTableSort(routes, {

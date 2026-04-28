@@ -3,7 +3,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { AlertBanner } from '../../components/AlertBanner'
 
 export function HealthPage() {
-  const { data, error, lastFetch } = useNatsPolling('/healthz', 5000)
+  const { data, error, lastFetch } = useNatsPolling('/healthz', 2000)
 
   const healthy = !error && data?.status === 'ok'
 

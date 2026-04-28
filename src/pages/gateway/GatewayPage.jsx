@@ -73,7 +73,7 @@ function ConnectionsTable({ connections, title, icon: Icon }) {
 }
 
 export function GatewayPage() {
-  const { data, error } = useNatsPolling('/gatewayz', 5000)
+  const { data, error } = useNatsPolling('/gatewayz', 2000)
 
   if (data?._unavailable) return <NatsProtocolNotice endpoint="gatewayz" />
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>

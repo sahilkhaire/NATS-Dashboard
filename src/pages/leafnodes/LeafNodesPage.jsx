@@ -7,7 +7,7 @@ import { SortableTh } from '../../components/ui'
 import { Leaf } from 'lucide-react'
 
 export function LeafNodesPage() {
-  const { data, error } = useNatsPolling('/leafz', 5000)
+  const { data, error } = useNatsPolling('/leafz', 2000)
 
   const leafs = data?.leafs ?? []
   const { sortedData: sortedLeafs, sortBy, sortDir, handleSort } = useTableSort(leafs, {

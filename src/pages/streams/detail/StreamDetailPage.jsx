@@ -29,7 +29,7 @@ export function StreamDetailPage() {
   const navigate     = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [refreshInterval,  setRefreshInterval]  = useState(5000)
+  const [refreshInterval,  setRefreshInterval]  = useState(2000)
   const [menuBusy,         setMenuBusy]         = useState(false)
   const [showUpdateModal,  setShowUpdateModal]  = useState(false)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
@@ -247,13 +247,13 @@ export function StreamDetailPage() {
   ]
 
   return (
-    <div className="flex flex-col lg:flex-row">
+    <div className="-m-6 flex min-h-[calc(100vh-4rem)] flex-col lg:flex-row">
       <StreamSwitcherSidebar
         streams={allStreams}
         currentStreamName={streamName}
         currentSearch={location.search}
       />
-      <div className="min-w-0 flex-1 space-y-5">
+      <div className="min-w-0 flex-1 space-y-5 p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/streams" className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">

@@ -28,7 +28,7 @@ export function SubscriptionsPage() {
   const [filter, setFilter] = useState(urlFilter)
   const [search, setSearch] = useState('')
 
-  const { data, error } = useNatsPolling('/subsz?subs=1&limit=2000', 5000)
+  const { data, error } = useNatsPolling('/subsz?subs=1&limit=2000', 2000)
 
   const subs = data?.subscriptions_list ?? []
   const counts = useMemo(() => {

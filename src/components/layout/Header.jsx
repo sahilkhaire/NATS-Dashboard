@@ -17,9 +17,16 @@ export function Header({ serverName, lastUpdated, serverMode }) {
   const { logout } = useAuth()
   const { theme, setTheme } = useTheme()
   const { contexts, current, loading } = useNatsContexts()
-  const { data: health, error: healthError } = useNatsPolling('/healthz', 5000)
+  const { data: health, error: healthError } = useNatsPolling('/healthz', 2000)
 
-  const healthy = !healthError && health?.status === 'ok'
+  const healthStatusRaw = String(health?.status || '').toLowerCase()
+  const healthState = healthError
+    ? { tone: 'error', label: 'UNREACHABLE' }
+    : healthStatusRaw === 'ok'
+      ? { tone: 'ok', label: 'HEALTHY' }
+      : healthStatusRaw === 'inactive'
+        ? { tone: 'warn', label: 'INACTIVE' }
+        : { tone: 'warn', label: (health?.status || 'UNKNOWN').toUpperCase() }
   const ago = lastUpdated ? `${Math.round((Date.now() - lastUpdated) / 1000)}s ago` : '-'
 
   const activeContext = selectedContext ?? current
@@ -54,15 +61,15 @@ export function Header({ serverName, lastUpdated, serverMode }) {
             <Server size={20} className="text-foreground/80" />
             <span className="font-mono text-[13px] font-semibold tracking-wide">{serverName || 'NATS Dashboard'}</span>
           </div>
-          <StatusBadge status={healthy ? 'ok' : 'error'}>
+          <StatusBadge status={healthState.tone}>
             <Heart size={12} className="inline mr-1" />
-            {healthy ? 'HEALTHY' : 'UNREACHABLE'}
+            {healthState.label}
           </StatusBadge>
           {serverMode && (
             <Badge
               className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
                 serverMode.type === 'cluster'
-                  ? 'border border-foreground/30 bg-foreground/10 text-foreground'
+                  ? 'border border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-400'
                   : 'border border-border bg-border/50 text-muted-foreground'
               }`}
               title={serverMode.type === 'cluster' ? `Cluster: ${serverMode.clusterName || `${serverMode.routes} routes`}` : 'Standalone mode'}

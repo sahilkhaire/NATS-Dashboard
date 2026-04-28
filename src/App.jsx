@@ -29,7 +29,7 @@ import { ObjectPage }       from './pages/objects/ObjectPage'
 function AppContent() {
   const [serverName,   setServerName]   = useState('NATS Dashboard')
   const [lastUpdated,  setLastUpdated]  = useState(null)
-  const { data: varz } = useNatsPolling('/varz', 5000)
+  const { data: varz } = useNatsPolling('/varz', 2000)
 
   const serverMode = useMemo(() => {
     if (!varz) return null

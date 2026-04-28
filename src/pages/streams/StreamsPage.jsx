@@ -77,7 +77,7 @@ function formatRate(val) {
 export function StreamsPage() {
   const { confirm } = useConfirmDialog()
   const { notifyError, notifySuccess } = useNotifications()
-  const [refreshInterval, setRefreshInterval] = useState(5000)
+  const [refreshInterval, setRefreshInterval] = useState(2000)
   const [updateStreamName, setUpdateStreamName] = useState(null)
   const [sparklineMetric, setSparklineMetric] = useState('msgsPerSec')
 
