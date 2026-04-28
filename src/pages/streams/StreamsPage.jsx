@@ -18,6 +18,7 @@ import { Button, Input } from '../../components/ui'
 import { StreamSparkline } from './components/StreamSparkline'
 import { Settings, Trash2, Plus, Minus } from 'lucide-react'
 import { useConfirmDialog } from '../../components/shared/ConfirmDialogProvider'
+import { useNotifications } from '../../context/NotificationContext'
 
 // ─── Column group config ─────────────────────────────────────────────────────
 const GROUPS = [
@@ -75,9 +76,9 @@ function formatRate(val) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 export function StreamsPage() {
   const { confirm } = useConfirmDialog()
+  const { notifyError, notifySuccess } = useNotifications()
   const [refreshInterval, setRefreshInterval] = useState(5000)
   const [updateStreamName, setUpdateStreamName] = useState(null)
-  const [actionError, setActionError] = useState('')
   const [sparklineMetric, setSparklineMetric] = useState('msgsPerSec')
 
   // ── Filter state ──
@@ -177,19 +178,25 @@ export function StreamsPage() {
       'This action permanently removes the stream and all associated data.'
     )
     if (!shouldDelete) return
-    setActionError('')
     try {
       await deleteStream(s.name)
       refetch()
+      notifySuccess('Stream deleted', `"${s.name}" was deleted successfully.`, 'stream')
     } catch (err) {
-      setActionError(err.message)
+      notifyError('Delete failed', err.message || 'Unable to delete stream.', 'stream')
     }
   }
 
   const handleUpdate = async (streamName, config) => {
-    await updateStream(streamName, config)
-    setUpdateStreamName(null)
-    refetch()
+    try {
+      await updateStream(streamName, config)
+      setUpdateStreamName(null)
+      refetch()
+      notifySuccess('Stream updated', `"${streamName}" was updated successfully.`, 'stream')
+    } catch (err) {
+      notifyError('Update failed', err.message || 'Unable to update stream.', 'stream')
+      throw err
+    }
   }
 
   const streamToEdit = updateStreamName ? streams.find(s => s.name === updateStreamName) : null
@@ -284,12 +291,6 @@ export function StreamsPage() {
           </Button>
         </div>
       </div>
-
-      {actionError && (
-        <div className="rounded border border-border bg-muted p-3 text-sm text-foreground">
-          {actionError}
-        </div>
-      )}
 
       {/* ── Table ── */}
       <div className="premium-table-wrap">

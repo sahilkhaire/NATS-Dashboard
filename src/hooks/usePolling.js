@@ -8,6 +8,8 @@ export function usePolling(url, interval, options = {}) {
 
   // Store headers in a ref so changes don't restart the polling loop
   const headersRef = useRef(headers)
+  const lastErrorRef = useRef('')
+  const lastWarningRef = useRef('')
   headersRef.current = headers
 
   const fetchData = useCallback(async (signal) => {
@@ -21,11 +23,37 @@ export function usePolling(url, interval, options = {}) {
       const json = await res.json()
       setData(json)
       setError(null)
+      lastErrorRef.current = ''
       setLastFetch(Date.now())
+      if (json?._unavailable || json?._note) {
+        const warningMsg = json._note || 'Some monitoring information is unavailable.'
+        if (lastWarningRef.current !== warningMsg) {
+          lastWarningRef.current = warningMsg
+          window.dispatchEvent(new CustomEvent('app-notify', {
+            detail: {
+              level: 'warning',
+              title: 'Monitoring warning',
+              message: warningMsg,
+              source: 'polling',
+            },
+          }))
+        }
+      }
       onSuccess?.(json)
     } catch (e) {
       if (e.name === 'AbortError') return // request cancelled due to URL change, ignore
       setError(e.message)
+      if (lastErrorRef.current !== e.message) {
+        lastErrorRef.current = e.message
+        window.dispatchEvent(new CustomEvent('app-notify', {
+          detail: {
+            level: 'error',
+            title: 'Request failed',
+            message: e.message || 'Unexpected polling error',
+            source: 'polling',
+          },
+        }))
+      }
       if (e.message === 'HTTP 401') window.dispatchEvent(new CustomEvent('auth-required'))
       onError?.(e)
     }

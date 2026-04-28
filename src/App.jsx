@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider }   from './context/ThemeContext'
 import { LoginScreen }      from './components/shared/LoginScreen'
 import { ConfirmDialogProvider } from './components/shared/ConfirmDialogProvider'
+import { NotificationProvider } from './context/NotificationContext'
 import { AppSidebar }       from './components/app-sidebar'
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Header }           from './components/layout/Header'
@@ -96,9 +97,11 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <ConfigProvider>
-            <ConfirmDialogProvider>
-              <AppWithAuth />
-            </ConfirmDialogProvider>
+            <NotificationProvider>
+              <ConfirmDialogProvider>
+                <AppWithAuth />
+              </ConfirmDialogProvider>
+            </NotificationProvider>
           </ConfigProvider>
         </AuthProvider>
       </ThemeProvider>

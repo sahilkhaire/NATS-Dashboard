@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useConfig }       from '../../context/ConfigContext'
+import { useNotifications } from '../../context/NotificationContext'
 import { useNatsPolling }  from '../../hooks/useNatsPolling'
 import { MetricCard }      from '../../components/MetricCard'
 import { GaugeBar }        from '../../components/GaugeBar'
-import { AlertBanner }     from '../../components/AlertBanner'
 import { ConnectionError } from '../../components/ConnectionError'
 import { formatBytes }     from '../../utils/byteFormatter'
 import {
@@ -107,12 +107,14 @@ function Badge({ children, color = 'gray', icon: Icon }) {
 
 export function OverviewPage({ onData }) {
   const { pollInterval } = useConfig()
+  const { pushNotification } = useNotifications()
   const { data: varz, error, lastFetch } = useNatsPolling('/varz', pollInterval)
   const { data: jsz }  = useNatsPolling('/jsz', 3000)
   const { data: healthData } = useNatsPolling('/healthz', 5000)
 
   const [history, setHistory] = useState([])
   const prevRef = useRef(null)
+  const lastWarningsRef = useRef({ viaProtocol: false, slowConsumers: 0, apiErrors: 0 })
   const MAX_HISTORY = 60
 
   useEffect(() => {
@@ -148,11 +150,8 @@ export function OverviewPage({ onData }) {
 
   useEffect(() => { onData?.({ varz, lastFetch }) }, [varz, lastFetch, onData])
 
-  if (error) return <ConnectionError error={error} />
-  if (!varz) return <div className="p-6 text-muted-foreground">Loading...</div>
-
-  const viaProtocol   = varz._via === 'nats_protocol'
-  const slowConsumers = varz.slow_consumers ?? 0
+  const viaProtocol   = varz?._via === 'nats_protocol'
+  const slowConsumers = varz?.slow_consumers ?? 0
   const apiErrors     = jsz?.api?.errors ?? 0
   const jsMem         = jsz?.memory     ?? 0
   const jsMemMax      = jsz?.config?.max_memory ?? 0
@@ -160,10 +159,43 @@ export function OverviewPage({ onData }) {
   const jsStoreMax    = jsz?.config?.max_storage ?? 0
   const healthy       = !error && healthData?.status === 'ok'
 
-  const totalMsgsIn  = varz.in_msgs   != null ? varz.in_msgs.toLocaleString()  : null
-  const totalMsgsOut = varz.out_msgs  != null ? varz.out_msgs.toLocaleString()  : null
-  const totalBytesIn = varz.in_bytes  != null ? formatBytes(varz.in_bytes)      : null
-  const totalBytesOut= varz.out_bytes != null ? formatBytes(varz.out_bytes)     : null
+  const totalMsgsIn  = varz?.in_msgs   != null ? varz.in_msgs.toLocaleString()  : null
+  const totalMsgsOut = varz?.out_msgs  != null ? varz.out_msgs.toLocaleString()  : null
+  const totalBytesIn = varz?.in_bytes  != null ? formatBytes(varz.in_bytes)      : null
+  const totalBytesOut= varz?.out_bytes != null ? formatBytes(varz.out_bytes)     : null
+
+  useEffect(() => {
+    if (!varz) return
+    const prev = lastWarningsRef.current
+    if (viaProtocol && !prev.viaProtocol) {
+      pushNotification({
+        level: 'warning',
+        title: 'Limited monitoring mode',
+        message: 'Connected via NATS protocol (4222). Some metrics require monitoring port 8222.',
+        source: 'overview',
+      })
+    }
+    if (slowConsumers > 0 && slowConsumers !== prev.slowConsumers) {
+      pushNotification({
+        level: 'error',
+        title: `${slowConsumers} Slow Consumer${slowConsumers > 1 ? 's' : ''} Detected`,
+        message: 'Client(s) cannot consume fast enough. Check Connections for pending_bytes.',
+        source: 'overview',
+      })
+    }
+    if (apiErrors > 0 && apiErrors !== prev.apiErrors) {
+      pushNotification({
+        level: 'warning',
+        title: `${apiErrors} JetStream API Error${apiErrors > 1 ? 's' : ''}`,
+        message: 'JetStream has logged API errors. Check stream and consumer configurations.',
+        source: 'overview',
+      })
+    }
+    lastWarningsRef.current = { viaProtocol, slowConsumers, apiErrors }
+  }, [apiErrors, pushNotification, slowConsumers, viaProtocol, varz])
+
+  if (error) return <ConnectionError error={error} />
+  if (!varz) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   return (
     <div className="space-y-6">
@@ -179,18 +211,6 @@ export function OverviewPage({ onData }) {
             JetStream, stream and consumer data is fully available.
           </div>
         </div>
-      )}
-
-      {/* Slow consumer alert */}
-      {slowConsumers > 0 && (
-        <AlertBanner variant="error" title={`${slowConsumers} Slow Consumer${slowConsumers > 1 ? 's' : ''} Detected`}>
-          Client(s) cannot consume fast enough — the server is buffering data. Check the Connections page for pending_bytes.
-        </AlertBanner>
-      )}
-      {apiErrors > 0 && (
-        <AlertBanner variant="warn" title={`${apiErrors} JetStream API Error${apiErrors > 1 ? 's' : ''}`}>
-          JetStream has logged API errors. Check your stream and consumer configurations.
-        </AlertBanner>
       )}
 
       {/* ── Row 1: Health cards ──────────────────────────────────────────────── */}

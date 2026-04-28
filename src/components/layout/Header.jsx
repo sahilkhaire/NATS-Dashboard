@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
-import { Settings, Server, Heart, LogOut, GitMerge, ServerCog, Moon, Sun } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { Server, Heart, LogOut, GitMerge, ServerCog, Moon, Sun } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
-import { SettingsModal } from '../modals/SettingsModal'
 import { StatusBadge } from '../ui/StatusBadge'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -11,9 +10,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useNatsPolling } from '../../hooks/useNatsPolling'
 import { useNatsContexts } from '../../hooks/useNatsContexts'
 import { getLastConnection } from '../../hooks/useSavedConnections'
+import { NotificationCenterButton } from '../../context/NotificationContext'
 
 export function Header({ serverName, lastUpdated, serverMode }) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const { serverUrl, selectedContext, setServerUrl, setSelectedContext, setAuthToken } = useConfig()
   const { logout } = useAuth()
   const { theme, setTheme } = useTheme()
@@ -49,8 +48,7 @@ export function Header({ serverName, lastUpdated, serverMode }) {
   }, [contexts, current, setServerUrl, setSelectedContext, setAuthToken])
 
   return (
-    <>
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/80 bg-card/90 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/75">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/80 bg-card/90 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/75">
         <div className="flex items-center gap-3.5">
           <div className="flex items-center gap-2">
             <Server size={20} className="text-foreground/80" />
@@ -120,14 +118,7 @@ export function Header({ serverName, lastUpdated, serverMode }) {
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             <span className="text-xs">{theme === 'dark' ? 'Light' : 'Dark'}</span>
           </Button>
-          <Button
-            onClick={() => setSettingsOpen(true)}
-            variant="ghost"
-            size="icon"
-            title="Settings"
-          >
-            <Settings size={18} />
-          </Button>
+          <NotificationCenterButton />
           <Button
             onClick={logout}
             variant="ghost"
@@ -138,7 +129,5 @@ export function Header({ serverName, lastUpdated, serverMode }) {
           </Button>
         </div>
       </header>
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </>
   )
 }

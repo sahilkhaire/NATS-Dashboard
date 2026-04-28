@@ -4,6 +4,18 @@ import { useConfig } from '../context/ConfigContext'
 export function useStreamMutation() {
   const { serverUrl, authToken } = useConfig()
 
+  const parseResponse = useCallback(async (res, fallbackError) => {
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || fallbackError)
+      return data
+    }
+    const text = await res.text()
+    if (!res.ok) throw new Error(fallbackError)
+    throw new Error(text?.startsWith('<!DOCTYPE') ? 'Unexpected server response. Please retry.' : fallbackError)
+  }, [])
+
   const post = useCallback(async (path, body) => {
     const res = await fetch(path, {
       method: 'POST',
@@ -11,10 +23,18 @@ export function useStreamMutation() {
       credentials: 'include',
       body: JSON.stringify({ server: serverUrl, token: authToken, ...body }),
     })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || `Request to ${path} failed`)
-    return data
-  }, [serverUrl, authToken])
+    return parseResponse(res, `Request to ${path} failed`)
+  }, [serverUrl, authToken, parseResponse])
+
+  const get = useCallback(async (path) => {
+    const params = new URLSearchParams()
+    if (serverUrl) params.set('server', serverUrl)
+    if (authToken) params.set('token', authToken)
+    const sep = path.includes('?') ? '&' : '?'
+    const url = `${path}${params.size > 0 ? `${sep}${params.toString()}` : ''}`
+    const res = await fetch(url, { credentials: 'include' })
+    return parseResponse(res, `Request to ${path} failed`)
+  }, [serverUrl, authToken, parseResponse])
 
   // ── Stream mutations ───────────────────────────────────────────────────────
 
@@ -31,6 +51,41 @@ export function useStreamMutation() {
   const purgeStream = useCallback(
     (streamName, subject) => post('/api/stream/purge', { stream: streamName, subject: subject || undefined }),
     [post]
+  )
+
+  const duplicateStream = useCallback(
+    (streamName, target, config) => post('/api/stream/duplicate', { stream: streamName, target, config }),
+    [post]
+  )
+
+  const createMirrorStream = useCallback(
+    (streamName, target, mirror, config) => post('/api/stream/mirror', { stream: streamName, target, mirror, config }),
+    [post]
+  )
+
+  const stepDownLeader = useCallback(
+    (streamName) => post('/api/stream/step-down', { stream: streamName }),
+    [post]
+  )
+
+  const removeFollowers = useCallback(
+    (streamName, peers) => post('/api/stream/remove-followers', { stream: streamName, peers }),
+    [post]
+  )
+
+  const sealStream = useCallback(
+    (streamName) => post('/api/stream/seal', { stream: streamName }),
+    [post]
+  )
+
+  const getStreamCliConfig = useCallback(
+    (streamName) => get(`/api/stream/config-cli?stream=${encodeURIComponent(streamName)}`),
+    [get]
+  )
+
+  const getStreamTerraformConfig = useCallback(
+    (streamName) => get(`/api/stream/config-terraform?stream=${encodeURIComponent(streamName)}`),
+    [get]
   )
 
   // ── Scheduled purges ───────────────────────────────────────────────────────
@@ -97,6 +152,8 @@ export function useStreamMutation() {
 
   return {
     deleteStream, updateStream, purgeStream,
+    duplicateStream, createMirrorStream, stepDownLeader, removeFollowers, sealStream,
+    getStreamCliConfig, getStreamTerraformConfig,
     listSchedules, createSchedule, deleteSchedule,
     publishMessage, listScheduledPublishes, cancelScheduledPublish,
   }

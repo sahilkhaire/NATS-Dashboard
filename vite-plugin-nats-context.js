@@ -243,6 +243,207 @@ export function natsContextPlugin() {
         } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
       })
 
+      server.middlewares.use('/api/stream/duplicate', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, target, config = {}, server: sp, token: tp } = body
+          if (!stream || !target) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream or target name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Source stream not found')
+          const newConfig = { ...(infoResp.config || {}), ...(config || {}), name: target }
+          const createResp = await natsRequest(nc, `$JS.API.STREAM.CREATE.${target}`, newConfig)
+          if (createResp.error) throw new Error(createResp.error.description || 'Duplicate failed')
+          res.end(JSON.stringify({ ok: true, stream: target, config: createResp.config }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/mirror', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, target, mirror = {}, config = {}, server: sp, token: tp } = body
+          if (!stream || !target) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream or target name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Source stream not found')
+          const mirrorCfg = { name: stream }
+          if (mirror.filter_subject) mirrorCfg.filter_subject = mirror.filter_subject
+          if (mirror.opt_start_time) mirrorCfg.opt_start_time = mirror.opt_start_time
+          if (mirror.opt_start_seq != null) mirrorCfg.opt_start_seq = mirror.opt_start_seq
+          if (mirror.external && typeof mirror.external === 'object') mirrorCfg.external = mirror.external
+          const createCfg = { ...(infoResp.config || {}), ...(config || {}), name: target, mirror: mirrorCfg }
+          delete createCfg.subjects
+          delete createCfg.sources
+          const createResp = await natsRequest(nc, `$JS.API.STREAM.CREATE.${target}`, createCfg)
+          if (createResp.error) throw new Error(createResp.error.description || 'Mirror creation failed')
+          res.end(JSON.stringify({ ok: true, stream: target, config: createResp.config }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/step-down', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, server: sp, token: tp } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const resp = await natsRequest(nc, `$JS.API.STREAM.LEADER.STEPDOWN.${stream}`, {})
+          if (resp.error) throw new Error(resp.error.description || 'Step down failed')
+          res.end(JSON.stringify({ ok: true }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/remove-followers', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, peers, server: sp, token: tp } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Stream not found')
+          const inferredPeers = (infoResp.cluster?.replicas || [])
+            .filter((r) => !r.current && typeof r.name === 'string' && r.name)
+            .map((r) => r.name)
+          const peersToRemove = Array.isArray(peers) && peers.length > 0 ? peers : inferredPeers
+          if (peersToRemove.length === 0) {
+            res.end(JSON.stringify({ ok: true, removed: [], skipped: 'No follower peers found' }))
+            return
+          }
+          const removed = []
+          for (const peer of peersToRemove) {
+            const removeResp = await natsRequest(nc, `$JS.API.STREAM.REMOVE_PEER.${stream}`, { peer })
+            if (removeResp.error) throw new Error(removeResp.error.description || `Remove follower failed for ${peer}`)
+            removed.push(peer)
+          }
+          res.end(JSON.stringify({ ok: true, removed }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/seal', async (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const body = await readJsonBody(req)
+          const { stream, server: sp, token: tp } = body
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          const { natsServer, token } = resolveConn(sp, tp)
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Stream not found')
+          const merged = { ...(infoResp.config || {}), name: stream, sealed: true }
+          const resp = await natsRequest(nc, `$JS.API.STREAM.UPDATE.${stream}`, merged)
+          if (resp.error) throw new Error(resp.error.description || 'Seal failed')
+          res.end(JSON.stringify({ ok: true, config: resp.config }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/config-cli', async (req, res, next) => {
+        if (req.method !== 'GET') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const u = new URL(req.url, 'http://x')
+          const stream = u.searchParams.get('stream')
+          const { natsServer, token } = resolveConn(u.searchParams.get('server'), u.searchParams.get('token'))
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Stream not found')
+          const cfg = infoResp.config || {}
+          const args = ['nats', 'stream', 'add', stream]
+          if (Array.isArray(cfg.subjects) && cfg.subjects.length > 0) args.push(`--subjects=${cfg.subjects.join(',')}`)
+          if (cfg.retention) args.push(`--retention=${cfg.retention}`)
+          if (cfg.storage) args.push(`--storage=${cfg.storage}`)
+          if (Number.isFinite(cfg.num_replicas)) args.push(`--replicas=${cfg.num_replicas}`)
+          if (Number.isFinite(cfg.max_msgs)) args.push(`--max-msgs=${cfg.max_msgs}`)
+          if (Number.isFinite(cfg.max_bytes)) args.push(`--max-bytes=${cfg.max_bytes}`)
+          if (Number.isFinite(cfg.max_msg_size)) args.push(`--max-msg-size=${cfg.max_msg_size}`)
+          if (Number.isFinite(cfg.max_age)) args.push(`--max-age=${cfg.max_age}ns`)
+          if (cfg.discard) args.push(`--discard=${cfg.discard}`)
+          if (cfg.description) args.push(`--description="${String(cfg.description).replaceAll('"', '\\"')}"`)
+          if (cfg.sealed === true) args.push('--sealed')
+          if (cfg.allow_rollup_hdrs === true) args.push('--allow-rollup')
+          if (cfg.allow_direct === true) args.push('--allow-direct')
+          if (cfg.no_ack === true) args.push('--no-ack')
+          if (cfg.deny_purge === true) args.push('--deny-purge')
+          if (cfg.deny_delete === true) args.push('--deny-delete')
+          if (cfg.mirror?.name) args.push(`--mirror=${cfg.mirror.name}`)
+          res.end(JSON.stringify({ ok: true, stream, cli: args.join(' ') }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
+      server.middlewares.use('/api/stream/config-terraform', async (req, res, next) => {
+        if (req.method !== 'GET') return next()
+        if (guardAuth(req, res)) return
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const u = new URL(req.url, 'http://x')
+          const stream = u.searchParams.get('stream')
+          const { natsServer, token } = resolveConn(u.searchParams.get('server'), u.searchParams.get('token'))
+          if (!stream) { res.statusCode = 400; res.end(JSON.stringify({ error: 'Missing stream name' })); return }
+          if (!natsServer) { res.statusCode = 400; res.end(JSON.stringify({ error: 'No NATS server configured' })); return }
+          const nc = await getConn(natsServer, token)
+          const infoResp = await natsRequest(nc, `$JS.API.STREAM.INFO.${stream}`, {})
+          if (infoResp.error) throw new Error(infoResp.error.description || 'Stream not found')
+          const cfg = infoResp.config || {}
+          const lines = [
+            'resource "nats_jetstream_stream" "this" {',
+            `  name = "${stream.replaceAll('"', '\\"')}"`,
+          ]
+          if (Array.isArray(cfg.subjects) && cfg.subjects.length > 0) {
+            const subjects = cfg.subjects.map((s) => `"${String(s).replaceAll('"', '\\"')}"`).join(',')
+            lines.push(`  subjects = [${subjects}]`)
+          }
+          if (cfg.description) lines.push(`  description = "${String(cfg.description).replaceAll('"', '\\"')}"`)
+          if (cfg.retention) lines.push(`  retention = "${cfg.retention}"`)
+          if (cfg.storage) lines.push(`  storage = "${cfg.storage}"`)
+          if (cfg.num_replicas != null) lines.push(`  num_replicas = ${cfg.num_replicas}`)
+          if (cfg.max_msgs != null) lines.push(`  max_msgs = ${cfg.max_msgs}`)
+          if (cfg.max_bytes != null) lines.push(`  max_bytes = ${cfg.max_bytes}`)
+          if (cfg.max_age != null) lines.push(`  max_age = ${cfg.max_age}`)
+          if (cfg.max_msg_size != null) lines.push(`  max_msg_size = ${cfg.max_msg_size}`)
+          if (cfg.discard) lines.push(`  discard = "${cfg.discard}"`)
+          if (cfg.sealed != null) lines.push(`  sealed = ${cfg.sealed}`)
+          if (cfg.deny_delete != null) lines.push(`  deny_delete = ${cfg.deny_delete}`)
+          if (cfg.deny_purge != null) lines.push(`  deny_purge = ${cfg.deny_purge}`)
+          if (cfg.allow_rollup_hdrs != null) lines.push(`  allow_rollup_hdrs = ${cfg.allow_rollup_hdrs}`)
+          if (cfg.allow_direct != null) lines.push(`  allow_direct = ${cfg.allow_direct}`)
+          if (cfg.mirror_direct != null) lines.push(`  mirror_direct = ${cfg.mirror_direct}`)
+          if (cfg.mirror?.name) {
+            lines.push('  mirror {')
+            lines.push(`    name = "${String(cfg.mirror.name).replaceAll('"', '\\"')}"`)
+            if (cfg.mirror.filter_subject) lines.push(`    filter_subject = "${String(cfg.mirror.filter_subject).replaceAll('"', '\\"')}"`)
+            if (cfg.mirror.opt_start_time) lines.push(`    opt_start_time = "${cfg.mirror.opt_start_time}"`)
+            if (cfg.mirror.opt_start_seq != null) lines.push(`    opt_start_seq = ${cfg.mirror.opt_start_seq}`)
+            lines.push('  }')
+          }
+          lines.push('}')
+          res.end(JSON.stringify({ ok: true, stream, terraform: lines.join('\n') }))
+        } catch (err) { res.statusCode = 502; res.end(JSON.stringify({ error: err.message })) }
+      })
+
       // ── Messages ─────────────────────────────────────────────────────────────
 
       server.middlewares.use('/api/stream/messages', async (req, res, next) => {
