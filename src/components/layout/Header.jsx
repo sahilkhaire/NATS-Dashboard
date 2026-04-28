@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Settings, Server, Heart, LogOut, GitMerge, ServerCog } from 'lucide-react'
+import { Settings, Server, Heart, LogOut, GitMerge, ServerCog, Moon, Sun } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import { SettingsModal } from '../modals/SettingsModal'
 import { StatusBadge } from '../ui/StatusBadge'
 import { Button } from '../ui/button'
@@ -15,6 +16,7 @@ export function Header({ serverName, lastUpdated, serverMode }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { serverUrl, selectedContext, setServerUrl, setSelectedContext, setAuthToken } = useConfig()
   const { logout } = useAuth()
+  const { theme, setTheme } = useTheme()
   const { contexts, current, loading } = useNatsContexts()
   const { data: health, error: healthError } = useNatsPolling('/healthz', 5000)
 
@@ -108,6 +110,16 @@ export function Header({ serverName, lastUpdated, serverMode }) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Updated {ago}</span>
+          <Button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 px-2.5"
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            <span className="text-xs">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </Button>
           <Button
             onClick={() => setSettingsOpen(true)}
             variant="ghost"
