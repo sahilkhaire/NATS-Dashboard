@@ -23,12 +23,12 @@ export function LeafNodesPage() {
 
   if (data?._unavailable) return <NatsProtocolNotice endpoint="leafz" />
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
-  if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
+  if (!data) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   if (leafs.length === 0) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <EmptyState
             icon={Leaf}
             title="No leaf nodes connected"
@@ -41,10 +41,10 @@ export function LeafNodesPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="rounded-lg border border-nats-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-nats-card border-b border-nats-border">
+    <div className="space-y-4">
+      <div className="premium-table-wrap">
+        <table className="premium-table">
+          <thead>
             <tr>
               <SortableTh sortKey="account" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Account</SortableTh>
               <SortableTh sortKey="ip_port" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>IP:Port</SortableTh>
@@ -54,7 +54,7 @@ export function LeafNodesPage() {
           </thead>
           <tbody>
             {sortedLeafs.map((l) => (
-              <tr key={`${l.account}-${l.ip}:${l.port}`} className="border-b border-nats-border">
+              <tr key={`${l.account}-${l.ip}:${l.port}`}>
                 <td className="p-3">{l.account}</td>
                 <td className="p-3 font-mono">{l.ip}:{l.port}</td>
                 <td className="p-3 font-mono">{(l.in_msgs ?? 0).toLocaleString()}</td>

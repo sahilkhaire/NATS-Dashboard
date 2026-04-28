@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
-import { X, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { useTheme, THEMES } from '../../context/ThemeContext'
 import { setLastConnection } from '../../hooks/useSavedConnections'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 
 export function SettingsModal({ open, onClose }) {
   const { serverUrl, setServerUrl, pollInterval, setPollInterval, setSelectedContext, authToken, setAuthToken } = useConfig()
@@ -29,62 +32,54 @@ export function SettingsModal({ open, onClose }) {
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="bg-nats-card border border-nats-border rounded-lg p-6 w-full max-w-md shadow-xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-lg font-semibold">Settings</h2>
-          <button onClick={onClose} className="p-1 hover:bg-nats-border rounded">
-            <X size={20} />
-          </button>
-        </div>
-
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>Connection, polling interval, and dashboard theme settings.</DialogDescription>
+        </DialogHeader>
         <div className="space-y-5">
           {/* Connection */}
           <div>
-            <label className="block text-sm text-nats-text-secondary mb-1">NATS Monitoring URL</label>
-            <input
+            <label className="mb-1 block text-sm text-muted-foreground">NATS Monitoring URL</label>
+            <Input
               type="text"
               value={url}
               onChange={e => setUrl(e.target.value)}
               placeholder="http://localhost:8222"
-              className="w-full bg-nats-bg border border-nats-border rounded px-3 py-2 font-mono text-sm"
+              className="font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-nats-text-secondary mb-1">Auth Token (optional)</label>
-            <input
+            <label className="mb-1 block text-sm text-muted-foreground">Auth Token (optional)</label>
+            <Input
               type="password"
               value={token}
               onChange={e => setToken(e.target.value)}
               placeholder="Bearer token for secured NATS"
-              className="w-full bg-nats-bg border border-nats-border rounded px-3 py-2 font-mono text-sm"
+              className="font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-nats-text-secondary mb-1">Poll Interval (ms)</label>
-            <input
+            <label className="mb-1 block text-sm text-muted-foreground">Poll Interval (ms)</label>
+            <Input
               type="number"
               value={refreshInterval}
               onChange={e => setRefreshInterval(e.target.value)}
               min={1000}
               max={30000}
               step={1000}
-              className="w-full bg-nats-bg border border-nats-border rounded px-3 py-2 font-mono text-sm"
+              className="font-mono"
             />
           </div>
 
           {/* Theme picker */}
           <div>
-            <label className="block text-sm text-nats-text-secondary mb-2">Theme</label>
-            <div className="grid grid-cols-5 gap-2">
+            <label className="mb-2 block text-sm text-muted-foreground">Theme</label>
+            <div className="grid grid-cols-2 gap-2">
               {THEMES.map((t) => {
                 const active = theme === t.id
                 return (
@@ -92,10 +87,10 @@ export function SettingsModal({ open, onClose }) {
                     key={t.id}
                     onClick={() => setTheme(t.id)}
                     title={t.label}
-                    className={`group relative flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-all ${
+                    className={`group relative flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       active
-                        ? 'border-nats-accent ring-1 ring-nats-accent/50'
-                        : 'border-nats-border hover:border-nats-text-muted'
+                        ? 'border-primary ring-1 ring-primary/40'
+                        : 'border-border hover:border-muted-foreground'
                     }`}
                   >
                     {/* Mini preview swatch */}
@@ -114,9 +109,9 @@ export function SettingsModal({ open, onClose }) {
                         style={{ background: t.swatch.accent }}
                       />
                     </div>
-                    <span className="text-xs text-nats-text-secondary">{t.label}</span>
+                    <span className="text-xs text-muted-foreground">{t.label}</span>
                     {active && (
-                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-nats-accent flex items-center justify-center">
+                      <div className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
                         <Check size={9} strokeWidth={3} className="text-nats-bg" />
                       </div>
                     )}
@@ -127,15 +122,15 @@ export function SettingsModal({ open, onClose }) {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded border border-nats-border hover:bg-nats-border">
+        <DialogFooter className="mt-6">
+          <Button onClick={onClose} variant="outline">
             Cancel
-          </button>
-          <button onClick={handleSave} className="px-4 py-2 rounded bg-nats-accent text-nats-bg hover:opacity-90 font-medium">
+          </Button>
+          <Button onClick={handleSave}>
             Save
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

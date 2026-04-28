@@ -165,10 +165,10 @@ export function MessagesTab({ stream }) {
     <div className="space-y-3">
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-1 bg-nats-card border border-nats-border rounded-lg p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
           <button
             onClick={() => setMode('realtime')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'realtime' ? 'bg-nats-accent/20 text-nats-accent border border-nats-accent/30' : 'text-gray-400 hover:text-white'}`}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === 'realtime' ? 'border border-primary/30 bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {mode === 'realtime' && !paused
               ? <span className="w-1.5 h-1.5 rounded-full bg-nats-accent animate-pulse" />
@@ -177,7 +177,7 @@ export function MessagesTab({ stream }) {
           </button>
           <button
             onClick={() => setMode('history')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'history' ? 'bg-nats-accent/20 text-nats-accent border border-nats-accent/30' : 'text-gray-400 hover:text-white'}`}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === 'history' ? 'border border-primary/30 bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <History size={13} />
             History
@@ -188,7 +188,7 @@ export function MessagesTab({ stream }) {
           {mode === 'realtime' && (
             <button
               onClick={() => setPaused(p => !p)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm transition-colors ${paused ? 'border-nats-warn/40 hover:bg-nats-warn/20 text-nats-warn' : 'border-nats-border text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm transition-colors ${paused ? 'border-nats-warn/40 text-nats-warn hover:bg-nats-warn/20' : 'border-border text-muted-foreground hover:text-foreground'}`}
             >
               {paused ? <Play size={13} /> : <Pause size={13} />}
               {paused ? 'Resume' : 'Pause'}
@@ -196,7 +196,7 @@ export function MessagesTab({ stream }) {
           )}
           <button
             onClick={() => setShowFilters(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-sm transition-colors ${showFilters || hasActiveFilters ? 'border-nats-accent/40 text-nats-accent' : 'border-nats-border text-gray-400 hover:text-white'}`}
+            className={`flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm transition-colors ${showFilters || hasActiveFilters ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
           >
             <Filter size={13} />
             Filters
@@ -205,7 +205,7 @@ export function MessagesTab({ stream }) {
           <button
             onClick={reload}
             disabled={loading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-nats-border text-gray-400 hover:text-white text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           >
             <RotateCcw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -214,38 +214,38 @@ export function MessagesTab({ stream }) {
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4">
           <div className={`grid gap-3 ${mode === 'history' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1'}`}>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Subject Filter</label>
+              <label className="mb-1 block text-xs text-muted-foreground">Subject Filter</label>
               <input type="text" value={filterSubject} onChange={e => setFilterSubject(e.target.value)} placeholder="e.g. orders.> or events.*"
-                className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+                className="input-enterprise w-full font-mono" />
             </div>
             {mode === 'history' && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Start Sequence</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">Start Sequence</label>
                   <input type="number" value={filterStartSeq} onChange={e => { setFilterStartSeq(e.target.value); setFilterStartTime('') }} placeholder="e.g. 1000"
-                    className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+                    className="input-enterprise w-full font-mono" />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Start Time</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">Start Time</label>
                   <input type="datetime-local" value={filterStartTime} onChange={e => { setFilterStartTime(e.target.value); setFilterStartSeq('') }}
-                    className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white focus:outline-none focus:ring-1 focus:ring-nats-accent" />
+                    className="input-enterprise w-full" />
                 </div>
               </>
             )}
           </div>
 
           {savedFilters.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-nats-border">
-              <span className="text-xs text-gray-500">Saved:</span>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+              <span className="text-xs text-muted-foreground">Saved:</span>
               {savedFilters.map(f => (
                 <div key={f.name} className="flex items-center gap-0.5">
-                  <button onClick={() => applyFilter(f)} className="px-2 py-0.5 text-xs rounded-l bg-nats-border hover:bg-nats-accent/20 text-gray-300 hover:text-nats-accent transition-colors">
+                  <button onClick={() => applyFilter(f)} className="rounded-l bg-border px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-primary/20 hover:text-primary">
                     {f.name}
                   </button>
-                  <button onClick={() => deleteSavedFilter(f.name)} className="px-1 py-0.5 text-xs rounded-r bg-nats-border hover:bg-nats-error/20 text-gray-500 hover:text-nats-error transition-colors">
+                  <button onClick={() => deleteSavedFilter(f.name)} className="rounded-r bg-border px-1 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-nats-error/20 hover:text-nats-error">
                     <XIcon size={10} />
                   </button>
                 </div>
@@ -253,14 +253,14 @@ export function MessagesTab({ stream }) {
             </div>
           )}
 
-          <div className="flex gap-2 items-center pt-2 border-t border-nats-border">
+          <div className="flex items-center gap-2 border-t border-border pt-2">
             <input type="text" value={filterSetName} onChange={e => setFilterSetName(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveFilterSet()} placeholder="Save as filter set…"
-              className="flex-1 px-2 py-1 text-xs rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent" />
-            <button onClick={saveFilterSet} disabled={!filterSetName.trim()} className="px-2.5 py-1 text-xs rounded border border-nats-border hover:border-nats-accent/50 text-gray-400 hover:text-nats-accent transition-colors disabled:opacity-40">
+              className="input-enterprise flex-1 px-2 py-1 text-xs" />
+            <button onClick={saveFilterSet} disabled={!filterSetName.trim()} className="rounded border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:opacity-40">
               Save
             </button>
             {hasActiveFilters && (
-              <button onClick={() => { setFilterSubject(''); setFilterStartSeq(''); setFilterStartTime('') }} className="px-2.5 py-1 text-xs rounded text-gray-500 hover:text-white transition-colors">
+              <button onClick={() => { setFilterSubject(''); setFilterStartSeq(''); setFilterStartTime('') }} className="rounded px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
                 Clear
               </button>
             )}
@@ -270,7 +270,7 @@ export function MessagesTab({ stream }) {
 
       {error && <div className="p-3 rounded bg-nats-error/20 border border-nats-error/50 text-nats-error text-xs">{error}</div>}
 
-      <div className="flex items-center justify-between text-xs text-gray-500">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {messages.length} message{messages.length !== 1 ? 's' : ''}
           {streamMeta.lastSeq > 0 && ` · stream seq ${streamMeta.lastSeq.toLocaleString()}`}
@@ -279,14 +279,14 @@ export function MessagesTab({ stream }) {
           <span className="text-nats-warn flex items-center gap-1"><Pause size={10} /> Paused — new messages not shown</span>
         )}
         {mode === 'history' && hasMore && !loading && (
-          <span className="text-gray-500">More messages available ↓</span>
+          <span className="text-muted-foreground">More messages available ↓</span>
         )}
       </div>
 
       {/* Messages table */}
-      <div className="rounded-lg border border-nats-border overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-xs">
-          <thead className="bg-nats-card border-b border-nats-border">
+          <thead className="border-b border-border bg-card">
             <tr>
               <SortableTh sortKey="seq" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort} className="w-20">Seq</SortableTh>
               <SortableTh sortKey="time" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort} className="w-44">Time</SortableTh>
@@ -297,53 +297,53 @@ export function MessagesTab({ stream }) {
           </thead>
           <tbody>
             {loading && messages.length === 0 ? (
-              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500">Loading messages…</td></tr>
+              <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">Loading messages…</td></tr>
             ) : displayMessages.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-gray-500">
+                <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
                   {mode === 'realtime' ? 'Waiting for messages… (new messages will appear here)' : 'No messages found for the given filters.'}
                 </td>
               </tr>
             ) : (
               displayMessages.map(m => (
                 <Fragment key={m.seq}>
-                  <tr className="border-b border-nats-border hover:bg-nats-border/20 cursor-pointer" onClick={() => toggleExpand(m.seq)}>
+                  <tr className="cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => toggleExpand(m.seq)}>
                     <td className="px-3 py-2 font-mono text-nats-accent">{(m.seq ?? 0).toLocaleString()}</td>
-                    <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{m.time ? new Date(m.time).toLocaleString() : '—'}</td>
-                    <td className="px-3 py-2 font-mono text-gray-200 max-w-0 truncate" title={m.subject}>{m.subject}</td>
-                    <td className="px-3 py-2 font-mono text-gray-400 max-w-0 truncate" title={m.data}>
-                      {m.data ? (m.data.length > 120 ? m.data.slice(0, 120) + '…' : m.data) : <span className="text-gray-600">(empty)</span>}
+                    <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{m.time ? new Date(m.time).toLocaleString() : '—'}</td>
+                    <td className="max-w-0 truncate px-3 py-2 font-mono text-foreground" title={m.subject}>{m.subject}</td>
+                    <td className="max-w-0 truncate px-3 py-2 font-mono text-muted-foreground" title={m.data}>
+                      {m.data ? (m.data.length > 120 ? m.data.slice(0, 120) + '…' : m.data) : <span className="text-muted-foreground">(empty)</span>}
                     </td>
-                    <td className="px-3 py-2 text-gray-600">
+                    <td className="px-3 py-2 text-muted-foreground">
                       <ChevronDown size={13} className={`transition-transform ${expanded.has(m.seq) ? 'rotate-180' : ''}`} />
                     </td>
                   </tr>
                   {expanded.has(m.seq) && (
-                    <tr className="border-b border-nats-border bg-nats-bg/50">
+                    <tr className="border-b border-border bg-background/60">
                       <td colSpan={5} className="px-4 py-3">
                         <div className="space-y-2">
                           <div className="flex gap-4 text-xs">
-                            <span><span className="text-gray-500">Subject: </span><span className="font-mono text-gray-200">{m.subject}</span></span>
-                            <span><span className="text-gray-500">Seq: </span><span className="font-mono text-gray-200">{m.seq}</span></span>
-                            {m.time && <span><span className="text-gray-500">Time: </span><span className="font-mono text-gray-200">{new Date(m.time).toISOString()}</span></span>}
+                            <span><span className="text-muted-foreground">Subject: </span><span className="font-mono text-foreground">{m.subject}</span></span>
+                            <span><span className="text-muted-foreground">Seq: </span><span className="font-mono text-foreground">{m.seq}</span></span>
+                            {m.time && <span><span className="text-muted-foreground">Time: </span><span className="font-mono text-foreground">{new Date(m.time).toISOString()}</span></span>}
                           </div>
                           {Object.keys(m.headers || {}).length > 0 && (
                             <div>
-                              <div className="text-xs text-gray-500 mb-1">Headers:</div>
-                              <div className="bg-nats-card rounded border border-nats-border p-2 space-y-0.5">
+                              <div className="mb-1 text-xs text-muted-foreground">Headers:</div>
+                              <div className="space-y-0.5 rounded border border-border bg-card p-2">
                                 {Object.entries(m.headers).map(([k, v]) => (
                                   <div key={k} className="font-mono text-xs">
                                     <span className="text-nats-accent">{k}</span>
-                                    <span className="text-gray-500">: </span>
-                                    <span className="text-gray-200">{v}</span>
+                                    <span className="text-muted-foreground">: </span>
+                                    <span className="text-foreground">{v}</span>
                                   </div>
                                 ))}
                               </div>
                             </div>
                           )}
                           <div>
-                            <div className="text-xs text-gray-500 mb-1">Payload:</div>
-                            <pre className="bg-nats-card rounded border border-nats-border p-3 text-xs font-mono text-gray-200 overflow-x-auto whitespace-pre-wrap break-all max-h-64">
+                            <div className="mb-1 text-xs text-muted-foreground">Payload:</div>
+                            <pre className="max-h-64 overflow-x-auto whitespace-pre-wrap break-all rounded border border-border bg-card p-3 font-mono text-xs text-foreground">
                               {(() => {
                                 if (!m.data) return '(empty)'
                                 try { return JSON.stringify(JSON.parse(m.data), null, 2) } catch { return m.data }
@@ -363,13 +363,13 @@ export function MessagesTab({ stream }) {
 
       {mode === 'history' && hasMore && (
         <div className="text-center pt-1">
-          <button onClick={loadMore} disabled={loading} className="px-5 py-2 rounded border border-nats-border text-sm text-gray-400 hover:text-white hover:border-gray-500 transition-colors disabled:opacity-50">
+          <button onClick={loadMore} disabled={loading} className="rounded border border-border px-5 py-2 text-sm text-muted-foreground transition-colors hover:border-muted-foreground hover:text-foreground disabled:opacity-50">
             {loading ? 'Loading…' : 'Load more messages'}
           </button>
         </div>
       )}
       {mode === 'history' && !hasMore && messages.length > 0 && (
-        <div className="text-center text-xs text-gray-600 py-2">End of messages</div>
+        <div className="py-2 text-center text-xs text-muted-foreground">End of messages</div>
       )}
     </div>
   )

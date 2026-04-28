@@ -13,18 +13,18 @@ function timeFormatter(ts) {
 export function TrafficFlowChart({ points, refreshInterval }) {
   if (!points || points.length < 2) {
     return (
-      <div className="rounded-lg border border-nats-border bg-nats-card p-4">
-        <div className="text-xs text-gray-400">Traffic Flow</div>
-        <div className="text-xs text-gray-600 mt-2">Collecting enough points to render chart…</div>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-xs text-muted-foreground">Traffic Flow</div>
+        <div className="mt-2 text-xs text-muted-foreground">Collecting enough points to render chart…</div>
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-2">
+    <div className="space-y-2 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-300">Traffic Flow</span>
-        <span className="text-gray-500">Update cadence: {(refreshInterval / 1000).toFixed(1)}s</span>
+        <span className="text-foreground">Traffic Flow</span>
+        <span className="text-muted-foreground">Update cadence: {(refreshInterval / 1000).toFixed(1)}s</span>
       </div>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
@@ -68,7 +68,7 @@ export function TrafficFlowChart({ points, refreshInterval }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="text-[11px] text-gray-500">
+      <div className="text-[11px] text-muted-foreground">
         Ingress = new messages per second. Backlog/ack pending are summed across stream consumers.
       </div>
     </div>

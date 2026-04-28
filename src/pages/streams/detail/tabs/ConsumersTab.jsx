@@ -19,7 +19,7 @@ export function ConsumersTab({ consumers }) {
 
   if (consumers.length === 0) {
     return (
-      <div className="rounded-lg border border-nats-border bg-nats-card p-8 text-center text-gray-400">
+      <div className="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground">
         No consumers on this stream.
       </div>
     )
@@ -34,9 +34,9 @@ export function ConsumersTab({ consumers }) {
           {lagging.length} consumer(s) have pending or unacked messages.
         </AlertBanner>
       )}
-      <div className="rounded-lg border border-nats-border overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
-          <thead className="bg-nats-card border-b border-nats-border">
+          <thead className="border-b border-border bg-card">
             <tr>
               <SortableTh sortKey="name" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Name</SortableTh>
               <SortableTh sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Type</SortableTh>
@@ -49,14 +49,14 @@ export function ConsumersTab({ consumers }) {
           </thead>
           <tbody>
             {sortedData.map(c => (
-              <tr key={c.name} className="border-b border-nats-border hover:bg-nats-border/30">
+              <tr key={c.name} className="border-b border-border hover:bg-muted/30">
                 <td className="p-3 font-mono font-medium text-nats-accent">{c.name}</td>
                 <td className="p-3">
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-nats-border text-gray-300">
+                  <span className="rounded bg-border px-1.5 py-0.5 text-xs text-foreground">
                     {c.config?.durable_name ? 'Durable' : 'Ephemeral'}
                   </span>
                 </td>
-                <td className="p-3 font-mono text-xs text-gray-300">
+                <td className="p-3 font-mono text-xs text-foreground">
                   {c.config?.filter_subject || c.config?.filter_subjects?.join(', ') || '—'}
                 </td>
                 <td className={`p-3 font-mono ${(c.num_pending ?? 0) > 1000 ? 'text-nats-error' : ''}`}>
@@ -66,7 +66,7 @@ export function ConsumersTab({ consumers }) {
                   {(c.num_ack_pending ?? 0).toLocaleString()}
                 </td>
                 <td className="p-3 font-mono">{c.num_redelivered ?? 0}</td>
-                <td className="p-3 text-xs text-gray-300">{c.config?.deliver_policy ?? '—'}</td>
+                <td className="p-3 text-xs text-foreground">{c.config?.deliver_policy ?? '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -11,24 +11,26 @@ import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
  */
 export function SortableTh({ sortKey, currentSortBy, currentSortDir, onSort, className = '', children }) {
   const isActive = currentSortBy === sortKey
+  const ariaSort = isActive ? (currentSortDir === 'asc' ? 'ascending' : 'descending') : 'none'
 
   return (
-    <th
-      className={`text-left p-3 cursor-pointer select-none hover:bg-nats-border/50 transition-colors ${className}`}
-      onClick={() => onSort(sortKey)}
-    >
-      <div className="flex items-center gap-1">
+    <th className={`p-0 text-left ${className}`} aria-sort={ariaSort}>
+      <button
+        type="button"
+        className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        onClick={() => onSort(sortKey)}
+      >
         {children}
         {isActive ? (
           currentSortDir === 'asc' ? (
-            <ChevronUp size={14} className="text-nats-accent shrink-0" />
+            <ChevronUp size={14} className="text-primary shrink-0" />
           ) : (
-            <ChevronDown size={14} className="text-nats-accent shrink-0" />
+            <ChevronDown size={14} className="text-primary shrink-0" />
           )
         ) : (
-          <ChevronsUpDown size={14} className="text-gray-500 shrink-0 opacity-50" />
+          <ChevronsUpDown size={14} className="shrink-0 opacity-50 text-muted-foreground" />
         )}
-      </div>
+      </button>
     </th>
   )
 }

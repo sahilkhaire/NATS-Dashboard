@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { Settings, Server, Heart, ChevronDown, LogOut, GitMerge, ServerCog } from 'lucide-react'
+import { Settings, Server, Heart, LogOut, GitMerge, ServerCog } from 'lucide-react'
 import { useConfig } from '../../context/ConfigContext'
 import { useAuth } from '../../context/AuthContext'
 import { SettingsModal } from '../modals/SettingsModal'
 import { StatusBadge } from '../ui/StatusBadge'
+import { Button } from '../ui/button'
+import { Badge } from '../ui/badge'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { useNatsPolling } from '../../hooks/useNatsPolling'
 import { useNatsContexts } from '../../hooks/useNatsContexts'
 import { getLastConnection } from '../../hooks/useSavedConnections'
 
 export function Header({ serverName, lastUpdated, serverMode }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [contextOpen, setContextOpen] = useState(false)
   const { serverUrl, selectedContext, setServerUrl, setSelectedContext, setAuthToken } = useConfig()
   const { logout } = useAuth()
   const { contexts, current, loading } = useNatsContexts()
@@ -28,7 +30,6 @@ export function Header({ serverName, lastUpdated, serverMode }) {
       setSelectedContext(ctx.name)
       setAuthToken(ctx.token || null)
     }
-    setContextOpen(false)
   }
 
   // Initialize from NATS context on first load, but only if no saved connection exists
@@ -47,22 +48,22 @@ export function Header({ serverName, lastUpdated, serverMode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-nats-border bg-nats-bg px-6 py-3">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/80 bg-card/90 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/75">
+        <div className="flex items-center gap-3.5">
           <div className="flex items-center gap-2">
-            <Server size={20} className="text-nats-accent" />
-            <span className="font-mono font-semibold">{serverName || 'NATS Dashboard'}</span>
+            <Server size={20} className="text-foreground/80" />
+            <span className="font-mono text-[13px] font-semibold tracking-wide">{serverName || 'NATS Dashboard'}</span>
           </div>
           <StatusBadge status={healthy ? 'ok' : 'error'}>
             <Heart size={12} className="inline mr-1" />
             {healthy ? 'HEALTHY' : 'UNREACHABLE'}
           </StatusBadge>
           {serverMode && (
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+            <Badge
+              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
                 serverMode.type === 'cluster'
-                  ? 'bg-nats-accent/20 text-nats-accent border border-nats-accent/30'
-                  : 'bg-nats-border/50 text-nats-text-secondary border border-nats-border'
+                  ? 'border border-foreground/30 bg-foreground/10 text-foreground'
+                  : 'border border-border bg-border/50 text-muted-foreground'
               }`}
               title={serverMode.type === 'cluster' ? `Cluster: ${serverMode.clusterName || `${serverMode.routes} routes`}` : 'Standalone mode'}
             >
@@ -77,58 +78,52 @@ export function Header({ serverName, lastUpdated, serverMode }) {
                   Standalone
                 </>
               )}
-            </span>
+            </Badge>
           )}
           {contexts.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setContextOpen((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-nats-border bg-nats-card text-sm hover:bg-nats-border/50"
-                title="Switch NATS context"
-              >
-                <span className="text-nats-accent font-medium">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" title="Switch NATS context" className="h-8">
+                  <span className="font-medium text-foreground">
                   {loading ? '...' : activeCtx?.description || activeContext || 'Context'}
-                </span>
-                <ChevronDown size={14} className={contextOpen ? 'rotate-180' : ''} />
-              </button>
-              {contextOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setContextOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-50 min-w-[200px] rounded border border-nats-border bg-nats-card py-1 shadow-lg">
-                    {contexts.map((ctx) => (
-                      <button
-                        key={ctx.name}
-                        onClick={() => handleSelectContext(ctx)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-nats-border/50 flex flex-col ${
-                          activeContext === ctx.name ? 'bg-nats-accent/10 text-nats-accent' : ''
-                        }`}
-                      >
-                        <span className="font-medium">{ctx.description}</span>
-                        <span className="text-xs text-nats-text-muted font-mono">{ctx.monitoringUrl}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72">
+                {contexts.map((ctx) => (
+                  <DropdownMenuItem
+                    key={ctx.name}
+                    onSelect={() => handleSelectContext(ctx)}
+                    className={activeContext === ctx.name ? 'bg-accent text-accent-foreground' : ''}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">{ctx.description}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{ctx.monitoringUrl}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-nats-text-secondary">Updated {ago}</span>
-          <button
+          <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Updated {ago}</span>
+          <Button
             onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded hover:bg-nats-border text-nats-text-secondary hover:text-nats-text-primary"
+            variant="ghost"
+            size="icon"
             title="Settings"
           >
             <Settings size={18} />
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={logout}
-            className="p-2 rounded hover:bg-nats-border text-nats-text-secondary hover:text-nats-text-primary"
+            variant="ghost"
+            size="icon"
             title="Sign out"
           >
             <LogOut size={18} />
-          </button>
+          </Button>
         </div>
       </header>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

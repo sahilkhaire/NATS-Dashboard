@@ -24,8 +24,8 @@ export function PropertyRow({ label, value, displayValue, editable, inputType = 
   }
 
   return (
-    <div className="flex items-start justify-between py-3 px-4 border-b border-nats-border last:border-0 group hover:bg-nats-border/20 transition-colors">
-      <div className="text-sm text-gray-400 w-44 shrink-0 pt-0.5">{label}</div>
+    <div className="group flex items-start justify-between border-b border-border px-4 py-3 transition-colors hover:bg-muted/20 last:border-0">
+      <div className="w-44 shrink-0 pt-0.5 text-sm text-muted-foreground">{label}</div>
       <div className="flex-1 min-w-0">
         {editing ? (
           <div className="flex items-center gap-2">
@@ -33,7 +33,7 @@ export function PropertyRow({ label, value, displayValue, editable, inputType = 
               <select
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                className="px-2 py-1 text-sm rounded border border-nats-border bg-nats-bg text-white focus:outline-none focus:ring-1 focus:ring-nats-accent"
+                className="input-enterprise px-2 py-1 text-sm"
                 autoFocus
               >
                 {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -43,7 +43,7 @@ export function PropertyRow({ label, value, displayValue, editable, inputType = 
                 type={inputType}
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                className="w-full px-2 py-1 text-sm rounded border border-nats-border bg-nats-bg text-white focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono"
+                className="input-enterprise w-full px-2 py-1 text-sm font-mono"
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel() }}
               />
@@ -51,17 +51,17 @@ export function PropertyRow({ label, value, displayValue, editable, inputType = 
             <button onClick={save} disabled={saving} className="p-1 rounded hover:bg-nats-ok/20 text-nats-ok" title="Save">
               <Check size={14} />
             </button>
-            <button onClick={cancel} className="p-1 rounded hover:bg-nats-border text-gray-400" title="Cancel">
+            <button onClick={cancel} className="rounded p-1 text-muted-foreground hover:bg-muted" title="Cancel">
               <XIcon size={14} />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-mono text-white break-all">{displayValue ?? value ?? '—'}</span>
+            <span className="break-all font-mono text-sm text-foreground">{displayValue ?? value ?? '—'}</span>
             {editable && (
               <button
                 onClick={startEdit}
-                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-nats-border text-gray-400 hover:text-nats-accent transition-all"
+                className="rounded p-1 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-primary group-hover:opacity-100"
                 title={`Edit ${label}`}
               >
                 <Pencil size={12} />

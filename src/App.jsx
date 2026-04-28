@@ -4,7 +4,9 @@ import { ConfigProvider }   from './context/ConfigContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider }   from './context/ThemeContext'
 import { LoginScreen }      from './components/shared/LoginScreen'
-import { Sidebar }          from './components/layout/Sidebar'
+import { ConfirmDialogProvider } from './components/shared/ConfirmDialogProvider'
+import { AppSidebar }       from './components/app-sidebar'
+import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { Header }           from './components/layout/Header'
 import { useNatsPolling }   from './hooks/useNatsPolling'
 import { OverviewPage }     from './pages/overview/OverviewPage'
@@ -42,11 +44,11 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-nats-bg">
-      <Sidebar />
-      <div className="pl-60">
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="page-shell overflow-x-hidden">
         <Header serverName={serverName} lastUpdated={lastUpdated} serverMode={serverMode} />
-        <main className="min-h-[calc(100vh-4rem)]">
+        <main className="content-shell min-h-[calc(100vh-4rem)] overflow-x-hidden p-6">
           <Routes>
             <Route path="/"            element={<OverviewPage onData={handleOverviewData} />} />
             <Route path="/connections" element={<ConnectionsPage />} />
@@ -62,8 +64,8 @@ function AppContent() {
             <Route path="/health"      element={<HealthPage />} />
           </Routes>
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
 
@@ -72,8 +74,8 @@ function AppWithAuth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-nats-bg flex items-center justify-center">
-        <div className="text-nats-accent font-mono">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="font-mono text-primary">Loading...</div>
       </div>
     )
   }
@@ -88,7 +90,9 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <ConfigProvider>
-            <AppWithAuth />
+            <ConfirmDialogProvider>
+              <AppWithAuth />
+            </ConfirmDialogProvider>
           </ConfigProvider>
         </AuthProvider>
       </ThemeProvider>

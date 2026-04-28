@@ -37,10 +37,10 @@ export function PropertiesTab({ stream, onUpdate }) {
           label: 'Subjects',
           value: (cfg.subjects || []).join(', '),
           displayValue: cfg.mirror
-            ? <span className="text-gray-500 text-xs italic">Managed by mirror — not configurable</span>
+            ? <span className="text-xs italic text-muted-foreground">Managed by mirror — not configurable</span>
             : (cfg.subjects?.length
-                ? cfg.subjects.map(s => <span key={s} className="inline-block px-1.5 py-0.5 rounded bg-nats-border text-gray-200 text-xs font-mono mr-1 mb-0.5">{s}</span>)
-                : <span className="text-gray-600">—</span>),
+                ? cfg.subjects.map(s => <span key={s} className="mb-0.5 mr-1 inline-block rounded bg-border px-1.5 py-0.5 font-mono text-xs text-foreground">{s}</span>)
+                : <span className="text-muted-foreground">—</span>),
           editable: !cfg.mirror,
           onSave: async (val) => {
             const subjects = val.trim() ? val.split(',').map(s => s.trim()).filter(Boolean) : []
@@ -74,7 +74,7 @@ export function PropertiesTab({ stream, onUpdate }) {
           displayValue: (
             <span className="flex items-center gap-2">
               <span>{cfg.num_replicas ?? 1}</span>
-              <span className="text-xs text-gray-500">(1–5, cluster required for &gt;1)</span>
+              <span className="text-xs text-muted-foreground">(1–5, cluster required for &gt;1)</span>
             </span>
           ),
           editable: true,
@@ -88,10 +88,10 @@ export function PropertiesTab({ stream, onUpdate }) {
     {
       title: 'Access & Behavior',
       rows: [
-        { label: 'Sealed',               value: cfg.sealed ? 'true' : 'false',             displayValue: cfg.sealed ? <span className="text-nats-error text-xs font-medium">Sealed — no messages, deletes, or updates allowed</span> : <span className="text-gray-500 text-xs">No</span>, editable: !cfg.sealed, options: ['false', 'true'], onSave: makeUpdater('sealed',             v => v === 'true') },
+        { label: 'Sealed',               value: cfg.sealed ? 'true' : 'false',             displayValue: cfg.sealed ? <span className="text-nats-error text-xs font-medium">Sealed — no messages, deletes, or updates allowed</span> : <span className="text-xs text-muted-foreground">No</span>, editable: !cfg.sealed, options: ['false', 'true'], onSave: makeUpdater('sealed',             v => v === 'true') },
         { label: 'Deny Delete',          value: cfg.deny_delete ? 'true' : 'false',         displayValue: <BoolBadge value={cfg.deny_delete} onLabel="Yes — API message delete blocked" offLabel="No" warn />, editable: true, options: ['false', 'true'], onSave: makeUpdater('deny_delete',          v => v === 'true') },
         { label: 'Deny Purge',           value: cfg.deny_purge  ? 'true' : 'false',         displayValue: <BoolBadge value={cfg.deny_purge}  onLabel="Yes — API purge blocked"          offLabel="No" warn />, editable: true, options: ['false', 'true'], onSave: makeUpdater('deny_purge',           v => v === 'true') },
-        { label: 'No Ack',               value: cfg.no_ack      ? 'true' : 'false',         displayValue: cfg.no_ack ? <span className="text-nats-warn text-xs font-medium">Enabled — publish acks disabled (use core NATS publish)</span> : <span className="text-gray-500 text-xs">Disabled</span>, editable: true, options: ['false', 'true'], onSave: makeUpdater('no_ack', v => v === 'true') },
+        { label: 'No Ack',               value: cfg.no_ack      ? 'true' : 'false',         displayValue: cfg.no_ack ? <span className="text-nats-warn text-xs font-medium">Enabled — publish acks disabled (use core NATS publish)</span> : <span className="text-xs text-muted-foreground">Disabled</span>, editable: true, options: ['false', 'true'], onSave: makeUpdater('no_ack', v => v === 'true') },
         { label: 'Allow Rollup Headers', value: cfg.allow_rollup_hdrs ? 'true' : 'false',   displayValue: <BoolBadge value={cfg.allow_rollup_hdrs} />, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_rollup_hdrs', v => v === 'true') },
         { label: 'Allow Direct Get',     value: cfg.allow_direct      ? 'true' : 'false',   displayValue: <BoolBadge value={cfg.allow_direct}      />, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_direct',      v => v === 'true') },
         { label: 'Mirror Direct Get',    value: cfg.mirror_direct     ? 'true' : 'false',   displayValue: <BoolBadge value={cfg.mirror_direct}     />, editable: true, options: ['false', 'true'], onSave: makeUpdater('mirror_direct',     v => v === 'true') },
@@ -100,8 +100,8 @@ export function PropertiesTab({ stream, onUpdate }) {
     {
       title: 'Features (2.11+)',
       rows: [
-        { label: 'Allow Msg TTL',              value: cfg.allow_msg_ttl      ? 'true' : 'false', displayValue: cfg.allow_msg_ttl ? <span className="text-nats-ok text-xs font-medium">Enabled — publishers may set Nats-Msg-Ttl header</span> : <span className="text-gray-500 text-xs">Disabled</span>, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_msg_ttl',      v => v === 'true') },
-        { label: 'Subject Delete Marker TTL',  value: nsToDuration(cfg.subject_delete_marker_ttl), displayValue: !cfg.subject_delete_marker_ttl ? <span className="text-gray-500 text-xs">Disabled</span> : nsToDuration(cfg.subject_delete_marker_ttl), editable: true, onSave: makeUpdater('subject_delete_marker_ttl', v => { if (!v || v === '0') return 0; const ns = parseDurationToNs(v); if (ns === null) throw new Error('Invalid duration (e.g. 5m, 1h)'); return ns }) },
+        { label: 'Allow Msg TTL',              value: cfg.allow_msg_ttl      ? 'true' : 'false', displayValue: cfg.allow_msg_ttl ? <span className="text-nats-ok text-xs font-medium">Enabled — publishers may set Nats-Msg-Ttl header</span> : <span className="text-xs text-muted-foreground">Disabled</span>, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_msg_ttl',      v => v === 'true') },
+        { label: 'Subject Delete Marker TTL',  value: nsToDuration(cfg.subject_delete_marker_ttl), displayValue: !cfg.subject_delete_marker_ttl ? <span className="text-xs text-muted-foreground">Disabled</span> : nsToDuration(cfg.subject_delete_marker_ttl), editable: true, onSave: makeUpdater('subject_delete_marker_ttl', v => { if (!v || v === '0') return 0; const ns = parseDurationToNs(v); if (ns === null) throw new Error('Invalid duration (e.g. 5m, 1h)'); return ns }) },
         { label: 'Allow Msg Counter',          value: cfg.allow_msg_counter  ? 'true' : 'false', displayValue: <BoolBadge value={cfg.allow_msg_counter}  />, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_msg_counter',  v => v === 'true') },
         { label: 'Allow Atomic Publish',       value: cfg.allow_atomic       ? 'true' : 'false', displayValue: <BoolBadge value={cfg.allow_atomic}       />, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_atomic',       v => v === 'true') },
         { label: 'Allow Msg Schedules',        value: cfg.allow_msg_schedules ? 'true' : 'false', displayValue: <BoolBadge value={cfg.allow_msg_schedules} />, editable: true, options: ['false', 'true'], onSave: makeUpdater('allow_msg_schedules', v => v === 'true') },
@@ -136,9 +136,9 @@ export function PropertiesTab({ stream, onUpdate }) {
   return (
     <div className="space-y-4">
       {sections.map(section => (
-        <div key={section.title} className="rounded-lg border border-nats-border overflow-hidden">
-          <div className="px-4 py-2.5 bg-nats-card border-b border-nats-border">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{section.title}</span>
+        <div key={section.title} className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="border-b border-border bg-card px-4 py-2.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{section.title}</span>
           </div>
           {section.rows.map(row => (
             <PropertyRow key={row.label} {...row} />
@@ -154,18 +154,18 @@ export function PropertiesTab({ stream, onUpdate }) {
           {cfg.mirror.opt_start_time   && <KVRow label="Start Time">{new Date(cfg.mirror.opt_start_time).toLocaleString()}</KVRow>}
           {cfg.mirror.external?.api    && <KVRow label="External API">{cfg.mirror.external.api}</KVRow>}
           {cfg.mirror.external?.deliver && <KVRow label="External Deliver">{cfg.mirror.external.deliver}</KVRow>}
-          <KVRow label=""><span className="text-xs text-gray-500">Mirror configuration is set at creation and cannot be changed.</span></KVRow>
+          <KVRow label=""><span className="text-xs text-muted-foreground">Mirror configuration is set at creation and cannot be changed.</span></KVRow>
         </SectionBox>
       )}
 
       {(cfg.sources || []).length > 0 && (
         <SectionBox title={`Sources (${cfg.sources.length})`}>
           {cfg.sources.map((src, i) => (
-            <div key={i} className="px-4 py-3 border-b border-nats-border last:border-0 space-y-1">
+            <div key={i} className="space-y-1 border-b border-border px-4 py-3 last:border-0">
               <div className="font-mono text-sm text-nats-accent font-medium">{src.name}</div>
-              {src.filter_subject  && <div className="text-xs text-gray-400">Filter: <span className="font-mono text-gray-300">{src.filter_subject}</span></div>}
-              {src.opt_start_seq != null && <div className="text-xs text-gray-400">Start seq: <span className="font-mono text-gray-300">{src.opt_start_seq.toLocaleString()}</span></div>}
-              {src.external?.api   && <div className="text-xs text-gray-400">External: <span className="font-mono text-gray-300">{src.external.api}</span></div>}
+              {src.filter_subject  && <div className="text-xs text-muted-foreground">Filter: <span className="font-mono text-foreground">{src.filter_subject}</span></div>}
+              {src.opt_start_seq != null && <div className="text-xs text-muted-foreground">Start seq: <span className="font-mono text-foreground">{src.opt_start_seq.toLocaleString()}</span></div>}
+              {src.external?.api   && <div className="text-xs text-muted-foreground">External: <span className="font-mono text-foreground">{src.external.api}</span></div>}
             </div>
           ))}
         </SectionBox>
@@ -177,11 +177,11 @@ export function PropertiesTab({ stream, onUpdate }) {
           {(cfg.placement.tags || []).length > 0 && (
             <KVRow label="Tags">
               {cfg.placement.tags.map(t => (
-                <span key={t} className="inline-block px-1.5 py-0.5 rounded bg-nats-border text-gray-200 text-xs font-mono mr-1">{t}</span>
+                <span key={t} className="mr-1 inline-block rounded bg-border px-1.5 py-0.5 font-mono text-xs text-foreground">{t}</span>
               ))}
             </KVRow>
           )}
-          <KVRow label=""><span className="text-xs text-gray-500">Placement is set at creation and cannot be changed.</span></KVRow>
+          <KVRow label=""><span className="text-xs text-muted-foreground">Placement is set at creation and cannot be changed.</span></KVRow>
         </SectionBox>
       )}
 

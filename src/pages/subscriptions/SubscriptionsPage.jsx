@@ -7,6 +7,7 @@ import { MetricCard } from '../../components/MetricCard'
 import { AlertBanner } from '../../components/AlertBanner'
 import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 import { SortableTh } from '../../components/ui'
+import { PaginationBar } from '../../components/shared/PaginationBar'
 import { Database, Server, Layers, Search } from 'lucide-react'
 
 const FILTER_ALL = 'all'
@@ -88,7 +89,7 @@ export function SubscriptionsPage() {
   if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Total Subscriptions" value={(data.num_subscriptions ?? 0).toLocaleString()} />
         <MetricCard label="Cache Hit Rate" value={`${((data.cache_hit_rate ?? 0) * 100).toFixed(1)}%`} />
@@ -97,83 +98,83 @@ export function SubscriptionsPage() {
       </div>
 
       {/* Category breakdown */}
-      <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-nats-border">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Subscription Categories</span>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subscription Categories</span>
         </div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => handleFilterChange(FILTER_ALL)}
             className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-              filter === FILTER_ALL ? 'border-nats-accent bg-nats-accent/10' : 'border-nats-border hover:border-nats-border/80'
+              filter === FILTER_ALL ? 'border-foreground/25 bg-muted' : 'border-border hover:border-muted-foreground'
             }`}
           >
-            <Layers size={18} className="text-gray-400" />
+            <Layers size={18} className="text-muted-foreground" />
             <div>
-              <div className="font-mono text-lg text-white">{counts.total}</div>
-              <div className="text-xs text-gray-500">All</div>
+              <div className="font-mono text-lg text-foreground">{counts.total}</div>
+              <div className="text-xs text-muted-foreground">All</div>
             </div>
           </button>
           <button
             onClick={() => handleFilterChange(FILTER_JS)}
             className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-              filter === FILTER_JS ? 'border-nats-accent bg-nats-accent/10' : 'border-nats-border hover:border-nats-border/80'
+              filter === FILTER_JS ? 'border-foreground/25 bg-muted' : 'border-border hover:border-muted-foreground'
             }`}
           >
-            <Database size={18} className="text-nats-accent" />
+            <Database size={18} className="text-foreground/70" />
             <div>
-              <div className="font-mono text-lg text-white">{counts.js}</div>
-              <div className="text-xs text-gray-500">JetStream ($JS.*)</div>
+              <div className="font-mono text-lg text-foreground">{counts.js}</div>
+              <div className="text-xs text-muted-foreground">JetStream ($JS.*)</div>
             </div>
           </button>
           <button
             onClick={() => handleFilterChange(FILTER_SYS)}
             className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-              filter === FILTER_SYS ? 'border-nats-accent bg-nats-accent/10' : 'border-nats-border hover:border-nats-border/80'
+              filter === FILTER_SYS ? 'border-foreground/25 bg-muted' : 'border-border hover:border-muted-foreground'
             }`}
           >
-            <Server size={18} className="text-amber-400" />
+            <Server size={18} className="text-foreground/70" />
             <div>
-              <div className="font-mono text-lg text-white">{counts.sys}</div>
-              <div className="text-xs text-gray-500">System ($SYS.*)</div>
+              <div className="font-mono text-lg text-foreground">{counts.sys}</div>
+              <div className="text-xs text-muted-foreground">System ($SYS.*)</div>
             </div>
           </button>
           <button
             onClick={() => handleFilterChange(FILTER_APP)}
             className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-              filter === FILTER_APP ? 'border-nats-accent bg-nats-accent/10' : 'border-nats-border hover:border-nats-border/80'
+              filter === FILTER_APP ? 'border-foreground/25 bg-muted' : 'border-border hover:border-muted-foreground'
             }`}
           >
-            <Layers size={18} className="text-green-400" />
+            <Layers size={18} className="text-foreground/70" />
             <div>
-              <div className="font-mono text-lg text-white">{counts.app}</div>
-              <div className="text-xs text-gray-500">Application</div>
+              <div className="font-mono text-lg text-foreground">{counts.app}</div>
+              <div className="text-xs text-muted-foreground">Application</div>
             </div>
           </button>
         </div>
       </div>
 
       {/* Search + table */}
-      <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-nats-border flex flex-wrap items-center gap-3">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search subject (regex supported)"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm bg-nats-bg border border-nats-border rounded focus:outline-none focus:border-nats-accent"
+              className="input-enterprise w-full pl-8"
             />
           </div>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {filtered.length} of {counts.total} subscriptions
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="premium-table-wrap rounded-none border-0">
+          <table className="premium-table">
             <thead>
-              <tr className="border-b border-nats-border">
+              <tr>
                 <SortableTh sortKey="subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>
                   Subject
                 </SortableTh>
@@ -194,22 +195,22 @@ export function SubscriptionsPage() {
             <tbody>
               {pagedData.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-gray-500 text-sm">
+                  <td colSpan={5} className="p-8 text-center text-sm text-muted-foreground">
                     No subscriptions match the current filter.
                   </td>
                 </tr>
               ) : (
                 pagedData.map((s, i) => (
-                  <tr key={`${s.cid}-${s.sid}-${i}`} className="border-b border-nats-border/50 hover:bg-nats-border/30">
-                    <td className="p-3 font-mono text-sm text-gray-200">
-                      <span className={s.subject?.startsWith('$JS') ? 'text-nats-accent' : s.subject?.startsWith('$SYS') ? 'text-amber-400' : ''}>
+                  <tr key={`${s.cid}-${s.sid}-${i}`}>
+                    <td className="p-3 font-mono text-sm text-foreground">
+                      <span className={s.subject?.startsWith('$JS') ? 'text-foreground' : s.subject?.startsWith('$SYS') ? 'text-foreground/80' : ''}>
                         {s.subject ?? '—'}
                       </span>
                     </td>
-                    <td className="p-3 font-mono text-xs text-gray-400">{s.account ?? '—'}</td>
-                    <td className="p-3 font-mono text-xs text-gray-400">{s.cid ?? '—'}</td>
-                    <td className="p-3 font-mono text-xs text-gray-400">{s.sid ?? '—'}</td>
-                    <td className="p-3 font-mono text-xs text-gray-400">{(s.msgs ?? 0).toLocaleString()}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{s.account ?? '—'}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{s.cid ?? '—'}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{s.sid ?? '—'}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground">{(s.msgs ?? 0).toLocaleString()}</td>
                   </tr>
                 ))
               )}
@@ -217,39 +218,16 @@ export function SubscriptionsPage() {
           </table>
         </div>
         {totalPages > 1 && (
-          <div className="px-4 py-2.5 border-t border-nats-border flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span>Rows per page:</span>
-              <select
-                value={pageSize}
-                onChange={e => setPageSize(Number(e.target.value))}
-                className="bg-nats-bg border border-nats-border rounded px-2 py-1 text-gray-300"
-              >
-                {[10, 25, 50, 100].map(n => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">
-                {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalItems)} of {totalItems}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="px-2 py-1 text-xs rounded border border-nats-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-nats-border/30"
-              >
-                Prev
-              </button>
-              <span className="text-xs text-gray-400">Page {page} / {totalPages}</span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="px-2 py-1 text-xs rounded border border-nats-border disabled:opacity-50 disabled:cursor-not-allowed hover:bg-nats-border/30"
-              >
-                Next
-              </button>
-            </div>
+          <div className="border-t border-border px-4 py-2.5">
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSize}
+              pageSizes={[10, 25, 50, 100]}
+            />
           </div>
         )}
       </div>

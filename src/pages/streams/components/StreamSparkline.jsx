@@ -19,7 +19,7 @@ export function StreamSparkline({ points, metric = 'msgsPerSec' }) {
   const hasData = Array.isArray(points) && points.length > 1
 
   if (!hasData) {
-    return <span className="text-[10px] text-gray-600">warming up…</span>
+    return <span className="text-[10px] text-muted-foreground">warming up…</span>
   }
 
   return (

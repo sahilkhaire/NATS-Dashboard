@@ -17,7 +17,7 @@ export function JetStreamPage() {
   }, [apiTotal])
 
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
-  if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
+  if (!data) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   const mem = data.memory ?? 0
   const rawMaxMem = data.config?.max_memory
@@ -34,18 +34,18 @@ export function JetStreamPage() {
     : null
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-lg border border-nats-border bg-nats-card p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           {maxMem != null
             ? <><GaugeBar value={mem} max={maxMem} label="Memory Used" /><div className="text-xs mt-1">{formatBytes(mem)} / {formatBytes(maxMem)}</div></>
-            : <><div className="text-sm text-nats-text-secondary mb-1">Memory Used</div><div className="font-mono text-lg">{formatBytes(mem)}</div><div className="text-xs text-gray-500">Unlimited</div></>
+            : <><div className="mb-1 text-sm text-muted-foreground">Memory Used</div><div className="font-mono text-lg text-foreground">{formatBytes(mem)}</div><div className="text-xs text-muted-foreground">Unlimited</div></>
           }
         </div>
-        <div className="rounded-lg border border-nats-border bg-nats-card p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           {maxStorage != null
             ? <><GaugeBar value={storage} max={maxStorage} label="Storage Used" /><div className="text-xs mt-1">{formatBytes(storage)} / {formatBytes(maxStorage)}</div></>
-            : <><div className="text-sm text-nats-text-secondary mb-1">Storage Used</div><div className="font-mono text-lg">{formatBytes(storage)}</div><div className="text-xs text-gray-500">Unlimited</div></>
+            : <><div className="mb-1 text-sm text-muted-foreground">Storage Used</div><div className="font-mono text-lg text-foreground">{formatBytes(storage)}</div><div className="text-xs text-muted-foreground">Unlimited</div></>
           }
         </div>
         <MetricCard label="API Calls" value={(data.api?.total ?? 0).toLocaleString()} />
@@ -59,11 +59,11 @@ export function JetStreamPage() {
       </div>
 
       {/* JetStream internal traffic */}
-      <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-nats-border flex items-center justify-between gap-2">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
           <div className="flex items-center gap-2">
             <Activity size={14} className="text-nats-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">JetStream Internal Traffic</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">JetStream Internal Traffic</span>
           </div>
           <Link
             to="/subscriptions?filter=js"
@@ -73,30 +73,30 @@ export function JetStreamPage() {
           </Link>
         </div>
         <div className="p-4">
-          <p className="text-xs text-gray-400 mb-4">
-            JetStream uses internal subjects (<code className="text-gray-300">$JS.*</code>) for stream/consumer operations, heartbeats, and acks.
+          <p className="mb-4 text-xs text-muted-foreground">
+            JetStream uses internal subjects (<code className="text-foreground">$JS.*</code>) for stream/consumer operations, heartbeats, and acks.
             API Calls below reflect this internal traffic.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">API Calls (total)</div>
-              <div className="font-mono text-lg text-white">{(data.api?.total ?? 0).toLocaleString()}</div>
+              <div className="mb-0.5 text-xs text-muted-foreground">API Calls (total)</div>
+              <div className="font-mono text-lg text-foreground">{(data.api?.total ?? 0).toLocaleString()}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">API Calls/sec</div>
+              <div className="mb-0.5 text-xs text-muted-foreground">API Calls/sec</div>
               <div className="font-mono text-lg text-nats-accent">
                 {apiCallsPerSec != null ? `${apiCallsPerSec.toLocaleString()} /s` : '—'}
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">API Errors</div>
-              <div className={`font-mono text-lg ${(data.api?.errors ?? 0) > 0 ? 'text-nats-error' : 'text-white'}`}>
+              <div className="mb-0.5 text-xs text-muted-foreground">API Errors</div>
+              <div className={`font-mono text-lg ${(data.api?.errors ?? 0) > 0 ? 'text-nats-error' : 'text-foreground'}`}>
                 {data.api?.errors ?? 0}
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 mb-0.5">API Level</div>
-              <div className="font-mono text-lg text-white">{data.api?.level ?? '—'}</div>
+              <div className="mb-0.5 text-xs text-muted-foreground">API Level</div>
+              <div className="font-mono text-lg text-foreground">{data.api?.level ?? '—'}</div>
             </div>
           </div>
         </div>

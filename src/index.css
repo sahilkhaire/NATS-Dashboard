@@ -2,114 +2,182 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Theme definitions ───────────────────────────────────────────────────────
-   All CSS variables hold space-separated RGB channels so Tailwind's opacity
-   modifier syntax (e.g. bg-nats-bg/50) works across every theme.
-   ────────────────────────────────────────────────────────────────────────── */
-
 /* Dark (default) */
 :root,
 [data-theme="dark"] {
-  --nats-bg:             15 17 23;
-  --nats-card:           26 29 39;
-  --nats-border:         45 49 72;
-  --nats-accent:         0 200 180;
-  --nats-accent-2:       77 143 245;
-  --nats-ok:             0 212 161;
-  --nats-warn:           245 166 35;
-  --nats-error:          255 77 109;
-  --nats-text-primary:   232 234 246;
-  --nats-text-secondary: 139 146 179;
-  --nats-text-muted:     77 82 120;
-  /* Legacy CSS custom properties (kept for body/utility use) */
-  --bg-primary:   #0f1117;
-  --bg-secondary: #1a1d27;
-  --text-primary: #e8eaf6;
+  --nats-bg: 8 8 10;
+  --nats-card: 14 14 16;
+  --nats-border: 34 34 38;
+  --nats-accent: 222 222 222;
+  --nats-accent-2: 184 184 184;
+  --nats-ok: 196 196 196;
+  --nats-warn: 158 158 158;
+  --nats-error: 128 128 128;
+  --nats-focus: 232 232 232;
+  --nats-text-primary: 236 236 238;
+  --nats-text-secondary: 161 161 170;
+  --nats-text-muted: 113 113 122;
+
+  --background: var(--nats-bg);
+  --foreground: var(--nats-text-primary);
+  --card: var(--nats-card);
+  --card-foreground: var(--nats-text-primary);
+  --popover: var(--nats-card);
+  --popover-foreground: var(--nats-text-primary);
+  --primary: 231 231 231;
+  --primary-foreground: 18 18 18;
+  --secondary: 24 24 27;
+  --secondary-foreground: var(--nats-text-primary);
+  --muted: 22 22 24;
+  --muted-foreground: var(--nats-text-secondary);
+  --accent: 44 44 49;
+  --accent-foreground: 244 244 245;
+  --destructive: 82 82 82;
+  --destructive-foreground: 244 244 245;
+  --border: var(--nats-border);
+  --input: var(--nats-border);
+  --ring: var(--nats-focus);
+  --chart-1: 225 225 225;
+  --chart-2: 196 196 196;
+  --chart-3: 166 166 166;
+  --chart-4: 138 138 138;
+  --chart-5: 112 112 112;
+  --radius: 0.8rem;
+
+  --sidebar-background: 0 0% 6%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 0 0% 92%;
+  --sidebar-primary-foreground: 0 0% 8%;
+  --sidebar-accent: 0 0% 14%;
+  --sidebar-accent-foreground: 0 0% 96%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 0 0% 88%;
 }
 
 /* Light */
 [data-theme="light"] {
-  --nats-bg:             242 244 250;
-  --nats-card:           255 255 255;
-  --nats-border:         213 219 234;
-  --nats-accent:         0 139 125;
-  --nats-accent-2:       37 99 235;
-  --nats-ok:             5 150 105;
-  --nats-warn:           180 100 0;
-  --nats-error:          192 30 45;
-  --nats-text-primary:   15 23 42;
-  --nats-text-secondary: 71 85 105;
-  --nats-text-muted:     148 163 184;
-  --bg-primary:   #f2f4fa;
-  --bg-secondary: #ffffff;
-  --text-primary: #0f172a;
+  --nats-bg: 240 241 244;
+  --nats-card: 255 255 255;
+  --nats-border: 214 216 222;
+  --nats-accent: 58 58 61;
+  --nats-accent-2: 82 82 91;
+  --nats-ok: 70 70 73;
+  --nats-warn: 96 96 104;
+  --nats-error: 53 53 60;
+  --nats-focus: 63 63 70;
+  --nats-text-primary: 24 24 27;
+  --nats-text-secondary: 82 82 91;
+  --nats-text-muted: 113 113 122;
+
+  --background: var(--nats-bg);
+  --foreground: var(--nats-text-primary);
+  --card: var(--nats-card);
+  --card-foreground: var(--nats-text-primary);
+  --popover: var(--nats-card);
+  --popover-foreground: var(--nats-text-primary);
+  --primary: 39 39 42;
+  --primary-foreground: 250 250 250;
+  --secondary: 231 233 238;
+  --secondary-foreground: 39 39 42;
+  --muted: 236 238 242;
+  --muted-foreground: var(--nats-text-secondary);
+  --accent: 220 223 229;
+  --accent-foreground: 39 39 42;
+  --destructive: 161 161 170;
+  --destructive-foreground: 250 250 250;
+  --border: var(--nats-border);
+  --input: var(--nats-border);
+  --ring: var(--nats-focus);
+  --chart-1: 44 44 49;
+  --chart-2: 75 85 99;
+  --chart-3: 113 113 122;
+  --chart-4: 145 145 153;
+  --chart-5: 173 173 180;
+
+  --sidebar-background: 0 0% 96%;
+  --sidebar-foreground: 0 0% 8%;
+  --sidebar-primary: 0 0% 10%;
+  --sidebar-primary-foreground: 0 0% 96%;
+  --sidebar-accent: 0 0% 89%;
+  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-border: 0 0% 82%;
+  --sidebar-ring: 0 0% 30%;
 }
 
-/* Ocean */
-[data-theme="ocean"] {
-  --nats-bg:             6 13 26;
-  --nats-card:           10 22 48;
-  --nats-border:         22 48 88;
-  --nats-accent:         0 229 208;
-  --nats-accent-2:       59 130 246;
-  --nats-ok:             16 185 129;
-  --nats-warn:           245 158 11;
-  --nats-error:          244 63 94;
-  --nats-text-primary:   224 239 255;
-  --nats-text-secondary: 125 168 212;
-  --nats-text-muted:     58 90 128;
-  --bg-primary:   #060d1a;
-  --bg-secondary: #0a1630;
-  --text-primary: #e0efff;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
 }
 
-/* Midnight */
-[data-theme="midnight"] {
-  --nats-bg:             9 9 11;
-  --nats-card:           24 24 27;
-  --nats-border:         39 39 42;
-  --nats-accent:         168 85 247;
-  --nats-accent-2:       129 140 248;
-  --nats-ok:             34 197 94;
-  --nats-warn:           234 179 8;
-  --nats-error:          239 68 68;
-  --nats-text-primary:   250 250 250;
-  --nats-text-secondary: 161 161 170;
-  --nats-text-muted:     82 82 91;
-  --bg-primary:   #09090b;
-  --bg-secondary: #18181b;
-  --text-primary: #fafafa;
-}
+@layer components {
+  .page-shell {
+    @apply min-h-screen bg-background text-foreground;
+    background-image: radial-gradient(circle at top right, rgb(var(--card) / 0.5), transparent 52%);
+  }
 
-/* Nord */
-[data-theme="nord"] {
-  --nats-bg:             46 52 64;
-  --nats-card:           59 66 82;
-  --nats-border:         76 86 106;
-  --nats-accent:         136 192 208;
-  --nats-accent-2:       129 161 193;
-  --nats-ok:             163 190 140;
-  --nats-warn:           235 203 139;
-  --nats-error:          191 97 106;
-  --nats-text-primary:   236 239 244;
-  --nats-text-secondary: 216 222 233;
-  --nats-text-muted:     141 153 181;
-  --bg-primary:   #2e3440;
-  --bg-secondary: #3b4252;
-  --text-primary: #eceff4;
-}
+  .content-shell {
+    @apply border-t border-border bg-background overflow-x-hidden;
+  }
 
-/* ─── Base styles ──────────────────────────────────────────────────────────── */
+  .surface-card {
+    @apply rounded-xl border border-border/90 bg-card text-card-foreground;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.05),
+      0 8px 24px rgb(0 0 0 / 0.08);
+  }
 
-body {
-  margin: 0;
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  transition: background 0.2s ease, color 0.2s ease;
-}
+  .input-enterprise {
+    @apply w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60;
+  }
 
-.font-mono {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  .premium-tabs {
+    @apply inline-flex items-center gap-1 rounded-lg border border-border bg-card/70 p-1;
+  }
+
+  .premium-tab-btn {
+    @apply rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+  }
+
+  .premium-tab-btn-active {
+    @apply bg-background text-foreground shadow-sm;
+  }
+
+  .premium-table-wrap {
+    @apply w-full max-w-full overflow-x-auto overflow-y-hidden rounded-xl border border-border bg-card;
+  }
+
+  .premium-table {
+    @apply min-w-full w-max border-collapse text-sm;
+  }
+
+  .premium-table thead tr:first-child {
+    @apply border-b border-border bg-muted/40;
+  }
+
+  .premium-table thead tr:last-child {
+    @apply border-b border-border bg-card;
+  }
+
+  .premium-table th {
+    @apply whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-muted-foreground;
+  }
+
+  .premium-table td {
+    @apply align-middle;
+  }
+
+  .premium-table tbody tr {
+    @apply border-b border-border/70 transition-colors hover:bg-muted/30;
+  }
+
+  .premium-table tbody tr:last-child {
+    @apply border-b-0;
+  }
 }

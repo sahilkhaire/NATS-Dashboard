@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
 import { normalizeRetention } from '../../utils/retention'
+import { Button } from '../ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Input } from '../ui/input'
 
 const RETENTION_OPTIONS = ['limits', 'interest', 'workqueue']
 
@@ -82,42 +84,34 @@ export function UpdateStreamModal({ open, stream, config, onClose, onSave }) {
     }
   }
 
-  if (!open) return null
-
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-nats-card border border-nats-border rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b border-nats-border">
-            <h3 className="font-mono font-semibold text-lg">Update stream: {stream}</h3>
-            <button onClick={onClose} className="p-1 rounded hover:bg-nats-border text-gray-400">
-              <X size={20} />
-            </button>
-          </div>
-          <form onSubmit={handleSubmit} className="p-4 space-y-4">
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-mono">Update stream: {stream}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded bg-nats-error/20 border border-nats-error/50 text-nats-error text-sm">
+              <div className="rounded border border-destructive/50 bg-destructive/20 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Subjects (comma-separated)</label>
-              <input
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Subjects (comma-separated)</label>
+              <Input
                 type="text"
                 value={subjects}
                 onChange={(e) => setSubjects(e.target.value)}
                 placeholder="e.g. orders.>, events.>"
-                className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Retention</label>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Retention</label>
                 <select
                   value={retention}
                   onChange={(e) => setRetention(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
+                  className="input-enterprise"
                 >
                   {RETENTION_OPTIONS.map(r => (
                     <option key={r} value={r}>{r}</option>
@@ -125,11 +119,11 @@ export function UpdateStreamModal({ open, stream, config, onClose, onSave }) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Storage</label>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Storage</label>
                 <select
                   value={storage}
                   onChange={(e) => setStorage(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
+                  className="input-enterprise"
                 >
                   {STORAGE_OPTIONS.map(s => (
                     <option key={s} value={s}>{s}</option>
@@ -139,58 +133,54 @@ export function UpdateStreamModal({ open, stream, config, onClose, onSave }) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Max messages</label>
-                <input
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Max messages</label>
+                <Input
                   type="number"
                   min="0"
                   value={maxMsgs}
                   onChange={(e) => setMaxMsgs(e.target.value)}
                   placeholder="0 = unlimited"
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Max bytes</label>
-                <input
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Max bytes</label>
+                <Input
                   type="number"
                   min="0"
                   value={maxBytes}
                   onChange={(e) => setMaxBytes(e.target.value)}
                   placeholder="0 = unlimited"
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Max age (e.g. 24h, 7d)</label>
-                <input
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Max age (e.g. 24h, 7d)</label>
+                <Input
                   type="text"
                   value={maxAge}
                   onChange={(e) => setMaxAge(e.target.value)}
                   placeholder="e.g. 24h"
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Max message size (bytes)</label>
-                <input
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Max message size (bytes)</label>
+                <Input
                   type="number"
                   min="0"
                   value={maxMsgSize}
                   onChange={(e) => setMaxMsgSize(e.target.value)}
                   placeholder="0 = unlimited"
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Discard policy</label>
+                <label className="mb-1 block text-sm font-medium text-muted-foreground">Discard policy</label>
                 <select
                   value={discard}
                   onChange={(e) => setDiscard(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white"
+                  className="input-enterprise"
                 >
                   {DISCARD_OPTIONS.map(d => (
                     <option key={d} value={d}>{d}</option>
@@ -203,31 +193,29 @@ export function UpdateStreamModal({ open, stream, config, onClose, onSave }) {
                     type="checkbox"
                     checked={discardNewPerSubject}
                     onChange={(e) => setDiscardNewPerSubject(e.target.checked)}
-                    className="rounded border-nats-border"
+                    className="rounded border-border"
                   />
-                  <span className="text-sm text-gray-300">Discard new per subject</span>
+                  <span className="text-sm text-muted-foreground">Discard new per subject</span>
                 </label>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <button
+            <DialogFooter className="pt-4">
+              <Button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded border border-nats-border hover:bg-nats-border/50"
+                variant="outline"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 rounded bg-nats-accent text-nats-bg font-semibold hover:bg-nats-accent/90 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </>
+              </Button>
+            </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

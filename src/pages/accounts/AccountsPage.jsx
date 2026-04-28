@@ -35,13 +35,13 @@ export function AccountsPage() {
 
   if (data?._unavailable) return <NatsProtocolNotice endpoint="accstatz" />
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
-  if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
+  if (!data) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="rounded-lg border border-nats-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-nats-card border-b border-nats-border">
+    <div className="space-y-4">
+      <div className="premium-table-wrap">
+        <table className="premium-table">
+          <thead>
             <tr>
               <SortableTh sortKey="account_name" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Account</SortableTh>
               <SortableTh sortKey="clients" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Clients</SortableTh>
@@ -53,8 +53,8 @@ export function AccountsPage() {
           </thead>
           <tbody>
             {sortedAccounts.map((a) => (
-              <tr key={a.account_name} className="border-b border-nats-border hover:bg-nats-border/30">
-                <td className="p-3 font-mono font-medium text-nats-accent">{a.account_name}</td>
+              <tr key={a.account_name}>
+                <td className="p-3 font-mono font-medium text-foreground">{a.account_name}</td>
                 <td className="p-3">{a.client_connections}</td>
                 <td className="p-3">{a.leafnode_connections}</td>
                 <td className="p-3">{a.subscriptions.toLocaleString()}</td>

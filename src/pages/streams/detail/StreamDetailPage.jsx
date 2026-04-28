@@ -7,6 +7,8 @@ import { useStreamMutation } from '../../../hooks/useStreamMutation'
 import { AlertBanner }       from '../../../components/AlertBanner'
 import { RefreshSelector }   from '../../../components/RefreshSelector'
 import { Trash2, ChevronLeft } from 'lucide-react'
+import { useConfirmDialog } from '../../../components/shared/ConfirmDialogProvider'
+import { Button } from '../../../components/ui'
 
 import { AnalyticsTab }  from './tabs/AnalyticsTab'
 import { PropertiesTab } from './tabs/PropertiesTab'
@@ -22,6 +24,7 @@ export function StreamDetailPage() {
   const [activeTab,        setActiveTab]        = useState('properties')
   const [refreshInterval,  setRefreshInterval]  = useState(5000)
   const [deleteError,      setDeleteError]      = useState('')
+  const { confirm } = useConfirmDialog()
 
   const { data, error, lastFetch, refetch } = useNatsPolling('/jsz?accounts=true&streams=true&consumers=true&config=true', refreshInterval)
   const { deleteStream, updateStream, purgeStream } = useStreamMutation()
@@ -30,7 +33,7 @@ export function StreamDetailPage() {
   const timeseriesByName = useStreamTimeseries(allStreams, { maxPoints: 90 })
 
   if (error)  return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
-  if (!data)  return <div className="p-6 text-gray-400">Loading...</div>
+  if (!data)  return <div className="p-6 text-muted-foreground">Loading...</div>
 
   let stream = null
   for (const acc of accountDetails) {
@@ -39,13 +42,17 @@ export function StreamDetailPage() {
     }
     if (stream) break
   }
-  if (!stream) return <div className="p-6 text-gray-400">Stream not found.</div>
+  if (!stream) return <div className="p-6 text-muted-foreground">Stream not found.</div>
 
   const consumers = stream.consumer_detail ?? []
   const streamSeries = timeseriesByName.get(stream.name) ?? []
 
   const handleDelete = async () => {
-    if (!confirm(`Delete stream "${stream.name}" and ALL its data? This cannot be undone.`)) return
+    const shouldDelete = await confirm(
+      `Delete stream "${stream.name}"?`,
+      'This action permanently removes the stream and all associated data.'
+    )
+    if (!shouldDelete) return
     setDeleteError('')
     try {
       await deleteStream(stream.name)
@@ -71,41 +78,42 @@ export function StreamDetailPage() {
   ]
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/streams" className="p-1.5 rounded hover:bg-nats-border text-gray-400 hover:text-white transition-colors">
+          <Link to="/streams" className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <ChevronLeft size={18} />
           </Link>
           <div>
             <h1 className="font-mono text-xl font-semibold text-nats-accent">{stream.name}</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {stream.config?.storage ?? 'file'} · {normalizeRetention(stream.config?.retention)} · {(stream.state?.messages ?? 0).toLocaleString()} msgs
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <RefreshSelector interval={refreshInterval} onChange={setRefreshInterval} lastFetch={lastFetch} />
-          <button
+          <Button
             onClick={handleDelete}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-nats-error/40 hover:bg-nats-error/20 text-nats-error text-sm transition-colors"
+            variant="outline"
+            className="border-nats-error/40 text-nats-error hover:bg-nats-error/20"
           >
             <Trash2 size={14} /> Delete
-          </button>
+          </Button>
         </div>
       </div>
 
       {deleteError && <AlertBanner variant="error" title="Delete failed">{deleteError}</AlertBanner>}
 
-      <div className="border-b border-nats-border flex gap-0">
+      <div className="premium-tabs">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`premium-tab-btn ${
               activeTab === tab.id
-                ? 'border-nats-accent text-nats-accent'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-nats-border'
+                ? 'premium-tab-btn-active'
+                : ''
             }`}
           >
             {tab.label}

@@ -25,12 +25,12 @@ export function ClusterPage() {
 
   if (data?._unavailable) return <NatsProtocolNotice endpoint="routez" />
   if (error) return <div className="p-6"><AlertBanner variant="error" title="Error">{error}</AlertBanner></div>
-  if (!data) return <div className="p-6 text-nats-text-secondary">Loading...</div>
+  if (!data) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   if (routes.length === 0) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <EmptyState
             icon={ServerCog}
             title="Standalone mode"
@@ -43,14 +43,14 @@ export function ClusterPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="rounded-lg border border-nats-border overflow-hidden">
-        <div className="px-4 py-2.5 bg-nats-card border-b border-nats-border flex items-center gap-2">
-          <GitMerge size={14} className="text-nats-accent" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Cluster routes ({routes.length})</span>
+    <div className="space-y-4">
+      <div className="premium-table-wrap">
+        <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
+          <GitMerge size={14} className="text-foreground/70" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cluster routes ({routes.length})</span>
         </div>
-        <table className="w-full text-sm">
-          <thead className="bg-nats-card border-b border-nats-border">
+        <table className="premium-table">
+          <thead>
             <tr>
               <SortableTh sortKey="remote_id" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Remote ID</SortableTh>
               <SortableTh sortKey="ip_port" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>IP:Port</SortableTh>
@@ -61,12 +61,12 @@ export function ClusterPage() {
           </thead>
           <tbody>
             {sortedRoutes.map((r) => (
-              <tr key={r.rid ?? `${r.remote_id}-${r.ip}-${r.port}`} className="border-b border-nats-border">
+              <tr key={r.rid ?? `${r.remote_id}-${r.ip}-${r.port}`}>
                 <td className="p-3 font-mono">{r.remote_id}</td>
                 <td className="p-3">{r.ip}:{r.port}</td>
                 <td className="p-3 font-mono">{(r.in_msgs ?? 0).toLocaleString()}</td>
                 <td className="p-3 font-mono">{(r.out_msgs ?? 0).toLocaleString()}</td>
-                <td className={`p-3 ${(r.pending_size ?? 0) > 0 ? 'text-nats-error' : ''}`}>{formatBytes(r.pending_size)}</td>
+                <td className={`p-3 ${(r.pending_size ?? 0) > 0 ? 'text-foreground' : ''}`}>{formatBytes(r.pending_size)}</td>
               </tr>
             ))}
           </tbody>

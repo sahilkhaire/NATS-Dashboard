@@ -3,6 +3,7 @@ import { useStreamMutation } from '../../../../hooks/useStreamMutation'
 import { useTableSort } from '../../../../hooks/useTableSort'
 import { SortableTh } from '../../../../components/ui'
 import { Plus, Flame, CalendarClock, Clock, RotateCcw, X as XIcon } from 'lucide-react'
+import { useConfirmDialog } from '../../../../components/shared/ConfirmDialogProvider'
 
 const INTERVAL_OPTIONS = [
   { label: '1 hour',  value: 3600000,   display: '1h'  },
@@ -43,12 +44,12 @@ function AddScheduleForm({ streamName, onCreate, onCancel }) {
   }
 
   return (
-    <div className="rounded-lg border border-nats-accent/40 bg-nats-card p-4 space-y-4">
+    <div className="space-y-4 rounded-lg border border-primary/40 bg-card p-4">
       <div className="text-sm font-semibold text-nats-accent">New Scheduled Purge</div>
       <div className="flex gap-2">
         {['once', 'recurring'].map(t => (
           <button key={t} onClick={() => setType(t)}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${type === t ? 'bg-nats-accent text-nats-bg' : 'border border-nats-border text-gray-400 hover:border-nats-accent/50'}`}>
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${type === t ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:border-primary/50'}`}>
             {t === 'once' ? 'One-time' : 'Recurring'}
           </button>
         ))}
@@ -56,23 +57,23 @@ function AddScheduleForm({ streamName, onCreate, onCancel }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {type === 'once' ? (
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Run at</label>
+            <label className="mb-1 block text-xs text-muted-foreground">Run at</label>
             <input type="datetime-local" value={runAt} onChange={e => setRunAt(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white focus:outline-none focus:ring-1 focus:ring-nats-accent" />
+              className="input-enterprise w-full px-2 py-1.5 text-sm" />
           </div>
         ) : (
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Repeat every</label>
+            <label className="mb-1 block text-xs text-muted-foreground">Repeat every</label>
             <select value={intervalMs} onChange={e => setIntervalMs(Number(e.target.value))}
-              className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white focus:outline-none focus:ring-1 focus:ring-nats-accent">
+              className="input-enterprise w-full px-2 py-1.5 text-sm">
               {INTERVAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
         )}
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Subject filter <span className="text-gray-500">(optional)</span></label>
+          <label className="mb-1 block text-xs text-muted-foreground">Subject filter <span className="text-muted-foreground">(optional)</span></label>
           <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. orders.> or leave blank for all"
-            className="w-full px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+            className="input-enterprise w-full px-2 py-1.5 font-mono text-sm" />
         </div>
       </div>
       {error && <div className="text-xs text-nats-error">{error}</div>}
@@ -80,13 +81,14 @@ function AddScheduleForm({ streamName, onCreate, onCancel }) {
         <button onClick={handleSave} disabled={saving} className="px-3 py-1.5 rounded bg-nats-accent text-nats-bg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {saving ? 'Saving…' : 'Create schedule'}
         </button>
-        <button onClick={onCancel} className="px-3 py-1.5 rounded border border-nats-border text-gray-400 hover:bg-nats-border text-sm">Cancel</button>
+        <button onClick={onCancel} className="rounded border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">Cancel</button>
       </div>
     </div>
   )
 }
 
 export function ScheduleTab({ streamName, purgeStream }) {
+  const { confirm } = useConfirmDialog()
   const { listSchedules, createSchedule, deleteSchedule } = useStreamMutation()
   const [schedules,    setSchedules]    = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -108,7 +110,13 @@ export function ScheduleTab({ streamName, purgeStream }) {
   useEffect(() => { reload() }, [reload])
 
   const handlePurge = async () => {
-    if (!confirm(`Purge all messages from "${streamName}"${purgeSubject ? ` matching subject "${purgeSubject}"` : ''}? This cannot be undone.`)) return
+    const shouldPurge = await confirm(
+      `Purge messages from "${streamName}"?`,
+      purgeSubject
+        ? `This permanently deletes messages matching subject "${purgeSubject}".`
+        : 'This permanently deletes all messages in the stream.'
+    )
+    if (!shouldPurge) return
     setPurging(true); setPurgeResult(null); setPurgeError('')
     try {
       const result = await purgeStream(streamName, purgeSubject.trim() || undefined)
@@ -119,7 +127,11 @@ export function ScheduleTab({ streamName, purgeStream }) {
 
   const handleCreate = async (params) => { await createSchedule(params); setShowForm(false); reload() }
   const handleDelete = async (id) => {
-    if (!confirm('Cancel this scheduled purge?')) return
+    const shouldDelete = await confirm(
+      'Cancel scheduled purge?',
+      'The schedule will be removed and no future purge will run from it.'
+    )
+    if (!shouldDelete) return
     try { await deleteSchedule(id); reload() }
     catch (err) { setError(err.message) }
   }
@@ -150,16 +162,16 @@ export function ScheduleTab({ streamName, purgeStream }) {
   return (
     <div className="space-y-5">
       {/* Immediate purge */}
-      <div className="rounded-lg border border-nats-border overflow-hidden">
-        <div className="px-4 py-3 bg-nats-card border-b border-nats-border flex items-center gap-2">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
           <Flame size={14} className="text-nats-error" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Purge Now</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Purge Now</span>
         </div>
         <div className="p-4 space-y-3">
-          <p className="text-xs text-gray-400">Immediately delete messages from this stream. Optionally narrow by subject filter.</p>
+          <p className="text-xs text-muted-foreground">Immediately delete messages from this stream. Optionally narrow by subject filter.</p>
           <div className="flex gap-2 items-center">
             <input type="text" value={purgeSubject} onChange={e => setPurgeSubject(e.target.value)} placeholder="Subject filter (optional, e.g. orders.>)"
-              className="flex-1 px-2 py-1.5 text-sm rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
+              className="input-enterprise flex-1 px-2 py-1.5 font-mono text-sm" />
             <button onClick={handlePurge} disabled={purging}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-nats-error/40 hover:bg-nats-error/20 text-nats-error text-sm font-medium disabled:opacity-50 transition-colors whitespace-nowrap">
               <Flame size={13} />{purging ? 'Purging…' : 'Purge'}
@@ -171,15 +183,15 @@ export function ScheduleTab({ streamName, purgeStream }) {
       </div>
 
       {/* Scheduled purges */}
-      <div className="rounded-lg border border-nats-border overflow-hidden">
-        <div className="px-4 py-3 bg-nats-card border-b border-nats-border flex items-center justify-between">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
           <div className="flex items-center gap-2">
-            <CalendarClock size={14} className="text-gray-400" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Scheduled Purges</span>
-            {!loading && <span className="text-xs text-gray-500">({schedules.length})</span>}
+            <CalendarClock size={14} className="text-muted-foreground" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled Purges</span>
+            {!loading && <span className="text-xs text-muted-foreground">({schedules.length})</span>}
           </div>
           <button onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded border border-nats-border hover:border-nats-accent/50 text-gray-400 hover:text-nats-accent text-xs transition-colors">
+            className="flex items-center gap-1 rounded border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
             <Plus size={12} /> Add
           </button>
         </div>
@@ -189,39 +201,39 @@ export function ScheduleTab({ streamName, purgeStream }) {
             <AddScheduleForm streamName={streamName} onCreate={handleCreate} onCancel={() => setShowForm(false)} />
           </div>
         )}
-        {error && <div className="p-3 text-xs text-nats-error border-b border-nats-border">{error}</div>}
+        {error && <div className="border-b border-border p-3 text-xs text-nats-error">{error}</div>}
 
         {loading ? (
-          <div className="p-4 text-sm text-gray-500">Loading…</div>
+          <div className="p-4 text-sm text-muted-foreground">Loading…</div>
         ) : schedules.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-500">No scheduled purges. Click <strong>Add</strong> to create one.</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">No scheduled purges. Click <strong>Add</strong> to create one.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-nats-card/60 border-b border-nats-border">
+            <thead className="border-b border-border bg-card/60">
               <tr>
                 <SortableTh sortKey="type" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Type</SortableTh>
                 <SortableTh sortKey="subject" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Subject Filter</SortableTh>
                 <SortableTh sortKey="nextRun" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Next Run</SortableTh>
                 <SortableTh sortKey="lastRun" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Last Run</SortableTh>
                 <SortableTh sortKey="status" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Status</SortableTh>
-                <th className="text-left p-3 w-16"></th>
+                  <th className="w-16 p-3 text-left"></th>
               </tr>
             </thead>
             <tbody>
               {sortedSchedules.map(s => (
-                <tr key={s.id} className="border-b border-nats-border hover:bg-nats-border/20">
+                <tr key={s.id} className="border-b border-border hover:bg-muted/30">
                   <td className="p-3">
                     <div className="flex items-center gap-1.5">
-                      {s.type === 'recurring' ? <RotateCcw size={12} className="text-nats-accent" /> : <Clock size={12} className="text-gray-400" />}
+                      {s.type === 'recurring' ? <RotateCcw size={12} className="text-nats-accent" /> : <Clock size={12} className="text-muted-foreground" />}
                       <span className="text-xs font-medium">{s.type === 'recurring' ? `Every ${s.intervalLabel}` : 'One-time'}</span>
                     </div>
                   </td>
-                  <td className="p-3 font-mono text-xs text-gray-300">{s.subject || <span className="text-gray-500">all messages</span>}</td>
+                  <td className="p-3 font-mono text-xs text-foreground">{s.subject || <span className="text-muted-foreground">all messages</span>}</td>
                   <td className="p-3 text-xs">{formatNextRun(s)}</td>
-                  <td className="p-3 text-xs text-gray-400">{s.lastRun ? new Date(s.lastRun).toLocaleString() : '—'}</td>
+                  <td className="p-3 text-xs text-muted-foreground">{s.lastRun ? new Date(s.lastRun).toLocaleString() : '—'}</td>
                   <td className="p-3">
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                      s.status === 'done'    ? 'bg-gray-700 text-gray-400' :
+                      s.status === 'done'    ? 'bg-border text-muted-foreground' :
                       s.status === 'error'   ? 'bg-nats-error/20 text-nats-error' :
                       s.status === 'running' ? 'bg-nats-warn/20 text-nats-warn' :
                       'bg-nats-ok/20 text-nats-ok'
@@ -230,7 +242,7 @@ export function ScheduleTab({ streamName, purgeStream }) {
                   </td>
                   <td className="p-3">
                     {s.status !== 'done' && (
-                      <button onClick={() => handleDelete(s.id)} className="p-1 rounded hover:bg-nats-error/20 text-gray-500 hover:text-nats-error transition-colors" title="Cancel schedule">
+                      <button onClick={() => handleDelete(s.id)} className="rounded p-1 text-muted-foreground transition-colors hover:bg-nats-error/20 hover:text-nats-error" title="Cancel schedule">
                         <XIcon size={13} />
                       </button>
                     )}

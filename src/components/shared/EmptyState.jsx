@@ -4,15 +4,15 @@
  */
 export function EmptyState({ icon: Icon, title, description, hint }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+    <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-6 py-16 text-center">
       {Icon && (
-        <div className="mb-4 p-4 rounded-full bg-nats-border/50 text-nats-text-muted">
+        <div className="mb-4 rounded-full bg-muted/40 p-4 text-muted-foreground">
           <Icon size={32} />
         </div>
       )}
-      <h3 className="text-base font-semibold text-nats-text-primary mb-1">{title}</h3>
-      {description && <p className="text-sm text-nats-text-secondary max-w-md mb-2">{description}</p>}
-      {hint && <p className="text-xs text-nats-text-muted">{hint}</p>}
+      <h3 className="mb-1 text-base font-semibold text-foreground">{title}</h3>
+      {description && <p className="mb-2 max-w-md text-sm text-muted-foreground">{description}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }

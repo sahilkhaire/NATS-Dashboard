@@ -21,23 +21,23 @@ import {
 
 function StatBox({ label, value, subValue, icon: Icon, variant = 'default', to }) {
   const colors = {
-    default: 'border-nats-border',
+    default: 'border-border',
     error:   'border-nats-error/50 bg-nats-error/10',
     warn:    'border-nats-warn/50 bg-nats-warn/10',
     ok:      'border-nats-ok/40 bg-nats-ok/10',
   }
   const inner = (
-    <div className={`rounded-lg border bg-nats-card p-4 ${colors[variant]} ${to ? 'hover:border-nats-accent/50 transition-colors cursor-pointer' : ''}`}>
+    <div className={`rounded-lg border bg-card p-4 ${colors[variant]} ${to ? 'cursor-pointer transition-colors hover:border-primary/50' : ''}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</div>
-        {Icon && <Icon size={14} className="text-gray-600" />}
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+        {Icon && <Icon size={14} className="text-muted-foreground" />}
       </div>
       <div className={`font-mono text-2xl font-semibold tabular-nums ${
-        variant === 'error' ? 'text-nats-error' : variant === 'warn' ? 'text-nats-warn' : variant === 'ok' ? 'text-nats-ok' : 'text-white'
+        variant === 'error' ? 'text-nats-error' : variant === 'warn' ? 'text-nats-warn' : variant === 'ok' ? 'text-nats-ok' : 'text-foreground'
       }`}>
-        {value ?? <span className="text-gray-600 text-base">—</span>}
+        {value ?? <span className="text-base text-muted-foreground">—</span>}
       </div>
-      {subValue && <div className="mt-1 text-xs text-gray-500">{subValue}</div>}
+      {subValue && <div className="mt-1 text-xs text-muted-foreground">{subValue}</div>}
     </div>
   )
   return to ? <Link to={to}>{inner}</Link> : inner
@@ -45,11 +45,11 @@ function StatBox({ label, value, subValue, icon: Icon, variant = 'default', to }
 
 function MiniChart({ data, dataKey, color, label, unit = '' }) {
   return (
-    <div className="rounded-lg border border-nats-border bg-nats-card p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-medium text-gray-300">{label}</span>
+        <span className="text-sm font-medium text-foreground">{label}</span>
         {data.length > 0 && (
-          <span className="ml-auto text-xs font-mono text-gray-400">
+          <span className="ml-auto text-xs font-mono text-muted-foreground">
             {(data[data.length - 1]?.[dataKey] ?? 0).toLocaleString()}{unit}
           </span>
         )}
@@ -66,7 +66,7 @@ function MiniChart({ data, dataKey, color, label, unit = '' }) {
             <XAxis dataKey="time" hide />
             <YAxis hide domain={[0, 'auto']} />
             <Tooltip
-              contentStyle={{ background: '#1a1d27', border: '1px solid #2d3148', borderRadius: 6, fontSize: 11 }}
+              contentStyle={{ background: 'rgb(var(--card))', border: '1px solid rgb(var(--border))', borderRadius: 6, fontSize: 11 }}
               labelStyle={{ display: 'none' }}
               formatter={v => [`${v.toLocaleString()}${unit}`, label]}
             />
@@ -80,9 +80,9 @@ function MiniChart({ data, dataKey, color, label, unit = '' }) {
 
 function InfoRow({ label, children, mono = false }) {
   return (
-    <div className="flex items-start justify-between py-2.5 border-b border-nats-border last:border-0">
-      <span className="text-xs text-gray-400 w-36 shrink-0">{label}</span>
-      <span className={`text-xs text-gray-200 text-right ${mono ? 'font-mono' : ''}`}>{children ?? '—'}</span>
+    <div className="flex items-start justify-between border-b border-border py-2.5 last:border-0">
+      <span className="w-36 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className={`text-right text-xs text-foreground ${mono ? 'font-mono' : ''}`}>{children ?? '—'}</span>
     </div>
   )
 }
@@ -91,7 +91,7 @@ function Badge({ children, color = 'gray', icon: Icon }) {
   const colors = {
     green: 'bg-nats-ok/20 text-nats-ok border-nats-ok/30',
     red:   'bg-nats-error/20 text-nats-error border-nats-error/30',
-    gray:  'bg-nats-border text-gray-300 border-transparent',
+    gray:  'border-transparent bg-border text-foreground',
     warn:  'bg-nats-warn/20 text-nats-warn border-nats-warn/30',
     blue:  'bg-blue-500/20 text-blue-300 border-blue-500/30',
   }
@@ -149,7 +149,7 @@ export function OverviewPage({ onData }) {
   useEffect(() => { onData?.({ varz, lastFetch }) }, [varz, lastFetch, onData])
 
   if (error) return <ConnectionError error={error} />
-  if (!varz) return <div className="p-6 text-gray-400">Loading...</div>
+  if (!varz) return <div className="p-6 text-muted-foreground">Loading...</div>
 
   const viaProtocol   = varz._via === 'nats_protocol'
   const slowConsumers = varz.slow_consumers ?? 0
@@ -166,7 +166,7 @@ export function OverviewPage({ onData }) {
   const totalBytesOut= varz.out_bytes != null ? formatBytes(varz.out_bytes)     : null
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
 
       {/* Protocol-mode notice */}
       {viaProtocol && (
@@ -198,7 +198,7 @@ export function OverviewPage({ onData }) {
         <StatBox
           label="Server Status"
           icon={Activity}
-          value={healthy ? <span className="text-nats-ok">Healthy</span> : <span className="text-gray-400">Unknown</span>}
+          value={healthy ? <span className="text-nats-ok">Healthy</span> : <span className="text-muted-foreground">Unknown</span>}
           subValue={varz.uptime ?? 'uptime via HTTP only'}
           variant={healthy ? 'default' : 'default'}
         />
@@ -211,7 +211,7 @@ export function OverviewPage({ onData }) {
         <StatBox
           label="JetStream"
           icon={Database}
-          value={jsz ? <span className="text-nats-ok">Enabled</span> : <span className="text-gray-400">—</span>}
+          value={jsz ? <span className="text-nats-ok">Enabled</span> : <span className="text-muted-foreground">—</span>}
           subValue={jsz ? `${jsz.total_streams ?? jsz.streams ?? 0} streams · ${jsz.total_consumers ?? jsz.consumers ?? 0} consumers` : undefined}
           to="/jetstream"
         />
@@ -255,10 +255,10 @@ export function OverviewPage({ onData }) {
 
       {/* ── Row 4: Cumulative throughput ─────────────────────────────────────── */}
       {(totalMsgsIn || totalMsgsOut || totalBytesIn || totalBytesOut) && (
-        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-nats-border flex items-center gap-2">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
             <ArrowDownToLine size={13} className="text-nats-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Cumulative Throughput (since server start)</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cumulative Throughput (since server start)</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4">
             {[
@@ -267,8 +267,8 @@ export function OverviewPage({ onData }) {
               { label: 'Total Bytes In',  value: totalBytesIn,  icon: ArrowDownToLine,  color: 'text-purple-400' },
               { label: 'Total Bytes Out', value: totalBytesOut, icon: ArrowUpFromLine,  color: 'text-amber-400' },
             ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="p-4 border-r border-nats-border last:border-r-0">
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1">
+              <div key={label} className="border-r border-border p-4 last:border-r-0">
+                <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Icon size={11} className={color} /> {label}
                 </div>
                 <div className={`font-mono text-lg font-semibold ${color}`}>{value ?? '—'}</div>
@@ -281,28 +281,28 @@ export function OverviewPage({ onData }) {
       {/* ── Row 5: JetStream storage/memory gauges ───────────────────────────── */}
       {jsz && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">JetStream Memory</span>
-              <span className="text-xs font-mono text-gray-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">JetStream Memory</span>
+              <span className="text-xs font-mono text-muted-foreground">
                 {formatBytes(jsMem)} {jsMemMax > 0 ? `/ ${formatBytes(jsMemMax)}` : '/ unlimited'}
               </span>
             </div>
             <GaugeBar value={jsMem} max={jsMemMax > 0 ? jsMemMax : jsMem || 1} label="" showPercent={jsMemMax > 0} />
-            <div className="flex gap-4 text-xs text-gray-500">
+            <div className="flex gap-4 text-xs text-muted-foreground">
               <span>Reserved: {formatBytes(jsz.reserved_memory ?? 0)}</span>
               <span>Messages: {(jsz.total_messages ?? jsz.messages ?? 0).toLocaleString()}</span>
             </div>
           </div>
-          <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">JetStream Storage</span>
-              <span className="text-xs font-mono text-gray-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">JetStream Storage</span>
+              <span className="text-xs font-mono text-muted-foreground">
                 {formatBytes(jsStore)} {jsStoreMax > 0 ? `/ ${formatBytes(jsStoreMax)}` : '/ unlimited'}
               </span>
             </div>
             <GaugeBar value={jsStore} max={jsStoreMax > 0 ? jsStoreMax : jsStore || 1} label="" showPercent={jsStoreMax > 0} />
-            <div className="flex gap-4 text-xs text-gray-500">
+            <div className="flex gap-4 text-xs text-muted-foreground">
               <span>Reserved: {formatBytes(jsz.reserved_storage ?? 0)}</span>
               <span>Bytes stored: {formatBytes(jsz.total_message_bytes ?? jsz.bytes ?? 0)}</span>
             </div>
@@ -313,25 +313,25 @@ export function OverviewPage({ onData }) {
       {/* ── Row 6: Server resources (CPU + Memory) ───────────────────────────── */}
       {!viaProtocol && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2">
-              <Cpu size={13} className="text-gray-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">CPU Usage</span>
-              {varz.cores != null && <span className="ml-auto text-xs text-gray-500">{varz.cores} cores</span>}
+              <Cpu size={13} className="text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">CPU Usage</span>
+              {varz.cores != null && <span className="ml-auto text-xs text-muted-foreground">{varz.cores} cores</span>}
             </div>
             {varz.cpu != null
               ? <GaugeBar value={varz.cpu} max={100} label={`${varz.cpu.toFixed(1)}%`} />
-              : <div className="text-xs text-gray-600 py-2">CPU data unavailable</div>}
+              : <div className="py-2 text-xs text-muted-foreground">CPU data unavailable</div>}
           </div>
-          <div className="rounded-lg border border-nats-border bg-nats-card p-4 space-y-3">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2">
-              <MemoryStick size={13} className="text-gray-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Memory</span>
-              {varz.mem != null && <span className="ml-auto text-xs font-mono text-gray-300">{formatBytes(varz.mem)}</span>}
+              <MemoryStick size={13} className="text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Memory</span>
+              {varz.mem != null && <span className="ml-auto text-xs font-mono text-foreground">{formatBytes(varz.mem)}</span>}
             </div>
             {varz.mem != null
               ? <GaugeBar value={varz.mem} max={varz.mem} label="" showPercent={false} />
-              : <div className="text-xs text-gray-600 py-2">Memory data unavailable</div>}
+              : <div className="py-2 text-xs text-muted-foreground">Memory data unavailable</div>}
           </div>
         </div>
       )}
@@ -339,10 +339,10 @@ export function OverviewPage({ onData }) {
       {/* ── Row 7: Server info + topology ────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Server Info */}
-        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-nats-border flex items-center gap-2">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
             <Server size={13} className="text-nats-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Server Info</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Server Info</span>
           </div>
           <div className="px-4 py-1">
             <InfoRow label="Server ID"   mono>{varz.server_id ? `${varz.server_id.slice(0, 24)}…` : '—'}</InfoRow>
@@ -368,19 +368,19 @@ export function OverviewPage({ onData }) {
         </div>
 
         {/* Topology */}
-        <div className="rounded-lg border border-nats-border bg-nats-card overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-nats-border flex items-center justify-between">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <div className="flex items-center gap-2">
               <Network size={13} className="text-nats-accent" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Topology</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Topology</span>
             </div>
             {(varz.routes ?? varz.remotes ?? 0) > 0 || varz.cluster?.name ? (
               <span className="text-xs px-1.5 py-0.5 rounded bg-nats-accent/20 text-nats-accent font-medium">Cluster</span>
             ) : (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-nats-border/50 text-nats-text-muted font-medium">Standalone</span>
+              <span className="rounded bg-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Standalone</span>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-0 divide-x divide-nats-border divide-y">
+          <div className="grid grid-cols-2 gap-0 divide-x divide-border divide-y">
             {[
               { label: 'Cluster Routes',  value: varz.routes,    to: '/cluster' },
               { label: 'Remote Servers',  value: varz.remotes,   to: '/cluster' },
@@ -390,10 +390,10 @@ export function OverviewPage({ onData }) {
               { label: 'Max Conns',       value: varz.max_connections != null ? varz.max_connections.toLocaleString() : null },
             ].map(({ label, value, to }) => (
               <div key={label} className="p-3">
-                <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                <div className="mb-0.5 text-xs text-muted-foreground">{label}</div>
                 {to
                   ? <Link to={to} className="font-mono text-sm text-nats-accent hover:underline">{value ?? '—'}</Link>
-                  : <div className="font-mono text-sm text-white">{value ?? '—'}</div>
+                  : <div className="font-mono text-sm text-foreground">{value ?? '—'}</div>
                 }
               </div>
             ))}
@@ -401,12 +401,12 @@ export function OverviewPage({ onData }) {
 
           {/* Cluster name + JetStream domain */}
           {(varz.cluster?.name || jsz?.domain) && (
-            <div className="px-4 py-3 border-t border-nats-border flex flex-wrap gap-3 text-xs">
+            <div className="flex flex-wrap gap-3 border-t border-border px-4 py-3 text-xs">
               {varz.cluster?.name && (
-                <span className="text-gray-400">Cluster: <span className="font-mono text-gray-200">{varz.cluster.name}</span></span>
+                <span className="text-muted-foreground">Cluster: <span className="font-mono text-foreground">{varz.cluster.name}</span></span>
               )}
               {jsz?.domain && (
-                <span className="text-gray-400">JS Domain: <span className="font-mono text-gray-200">{jsz.domain}</span></span>
+                <span className="text-muted-foreground">JS Domain: <span className="font-mono text-foreground">{jsz.domain}</span></span>
               )}
             </div>
           )}
@@ -415,12 +415,12 @@ export function OverviewPage({ onData }) {
 
       {/* ── Protocol-mode detail note ─────────────────────────────────────────── */}
       {viaProtocol && (
-        <div className="rounded-lg border border-nats-border bg-nats-card p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Available vs Unavailable Metrics</div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available vs Unavailable Metrics</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <div className="text-nats-ok font-medium mb-1.5">✓ Available via NATS protocol</div>
-              <ul className="space-y-1 text-gray-400">
+              <ul className="space-y-1 text-muted-foreground">
                 <li>Server identity (ID, name, version)</li>
                 <li>JetStream streams, consumers, state</li>
                 <li>Message rates (calculated from JS API)</li>
@@ -430,7 +430,7 @@ export function OverviewPage({ onData }) {
             </div>
             <div>
               <div className="text-nats-warn font-medium mb-1.5">✗ Requires HTTP port 8222</div>
-              <ul className="space-y-1 text-gray-400">
+              <ul className="space-y-1 text-muted-foreground">
                 <li>CPU &amp; memory usage</li>
                 <li>Active connections list</li>
                 <li>Subscription details</li>

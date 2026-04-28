@@ -4,8 +4,8 @@ export function GaugeBar({ value, max, label, showPercent = true }) {
   const isCritical = pct > 95
   return (
     <div>
-      {label && <div className="text-sm text-nats-text-secondary mb-1">{label}</div>}
-      <div className="h-2 w-full rounded-full bg-nats-border overflow-hidden">
+      {label && <div className="mb-1 text-sm text-muted-foreground">{label}</div>}
+      <div className="h-2 w-full overflow-hidden rounded-full bg-border/70">
         <div
           className={`h-full transition-all duration-300 ${
             isCritical ? 'bg-nats-error' : isHigh ? 'bg-nats-warn' : 'bg-nats-accent'
@@ -13,7 +13,7 @@ export function GaugeBar({ value, max, label, showPercent = true }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      {showPercent && <div className="text-xs text-nats-text-muted mt-1">{pct.toFixed(0)}%</div>}
+      {showPercent && <div className="mt-1 text-xs text-muted-foreground">{pct.toFixed(0)}%</div>}
     </div>
   )
 }

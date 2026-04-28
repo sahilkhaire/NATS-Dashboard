@@ -49,10 +49,10 @@ export function RelationsTab({ stream, allStreams }) {
 
   if (nodes.length === 1) {
     return (
-      <div className="rounded-lg border border-nats-border bg-nats-card p-10 text-center space-y-2">
-        <GitMerge size={32} className="mx-auto text-gray-700" />
-        <p className="text-gray-400 text-sm">No relations found for this stream.</p>
-        <p className="text-gray-600 text-xs">Configure a mirror, sources, or republish to see relationships here.</p>
+      <div className="space-y-2 rounded-lg border border-border bg-card p-10 text-center">
+        <GitMerge size={32} className="mx-auto text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">No relations found for this stream.</p>
+        <p className="text-xs text-muted-foreground">Configure a mirror, sources, or republish to see relationships here.</p>
       </div>
     )
   }
@@ -79,13 +79,13 @@ export function RelationsTab({ stream, allStreams }) {
   const typeColor = { current: '#00c8b4', stream: '#4d8ff5', external: '#f5a623', subject: '#a78bfa' }
 
   return (
-    <div className="rounded-lg border border-nats-border overflow-hidden">
-      <div className="px-4 py-3 bg-nats-card border-b border-nats-border flex items-center gap-2">
-        <GitMerge size={14} className="text-nats-accent" />
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Stream Relations</span>
-        <span className="ml-auto text-xs text-gray-600">{edges.length} relation{edges.length !== 1 ? 's' : ''}</span>
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
+        <GitMerge size={14} className="text-primary" />
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stream Relations</span>
+        <span className="ml-auto text-xs text-muted-foreground">{edges.length} relation{edges.length !== 1 ? 's' : ''}</span>
       </div>
-      <div className="p-4 bg-nats-bg">
+      <div className="bg-background p-4">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: '300px' }}>
           <defs>
             <marker id="rel-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -131,7 +131,7 @@ export function RelationsTab({ stream, allStreams }) {
           })}
         </svg>
 
-        <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-nats-border text-xs text-gray-400">
+        <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
           {[
             { color: '#00c8b4', label: 'This stream' },
             { color: '#4d8ff5', label: 'Other stream (click to open)' },
@@ -148,10 +148,10 @@ export function RelationsTab({ stream, allStreams }) {
         {edges.length > 0 && (
           <div className="mt-3 space-y-1">
             {edges.map((e, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="font-mono text-gray-300">{e.from.startsWith('__subj__') ? e.from.replace('__subj__', '') : e.from}</span>
-                <span className="text-gray-600">→ {e.label} →</span>
-                <span className="font-mono text-gray-300">{e.to.startsWith('__subj__') ? e.to.replace('__subj__', '') : e.to}</span>
+              <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-mono text-foreground">{e.from.startsWith('__subj__') ? e.from.replace('__subj__', '') : e.from}</span>
+                <span className="text-muted-foreground">→ {e.label} →</span>
+                <span className="font-mono text-foreground">{e.to.startsWith('__subj__') ? e.to.replace('__subj__', '') : e.to}</span>
               </div>
             ))}
           </div>

@@ -11,21 +11,21 @@ export function AnalyticsTab({ points, refreshInterval }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded border border-nats-border bg-nats-card p-3">
-          <div className="text-[11px] text-gray-500">Ingress</div>
-          <div className="text-sm font-semibold text-nats-accent">{formatRate(latest?.msgsPerSec)} msg/s</div>
+        <div className="rounded border border-border bg-card p-3">
+          <div className="text-[11px] text-muted-foreground">Ingress</div>
+          <div className="text-sm font-semibold text-primary">{formatRate(latest?.msgsPerSec)} msg/s</div>
         </div>
-        <div className="rounded border border-nats-border bg-nats-card p-3">
-          <div className="text-[11px] text-gray-500">Bytes Ingress</div>
-          <div className="text-sm font-semibold text-nats-accent">{formatRate(latest?.bytesPerSec)} B/s</div>
+        <div className="rounded border border-border bg-card p-3">
+          <div className="text-[11px] text-muted-foreground">Bytes Ingress</div>
+          <div className="text-sm font-semibold text-primary">{formatRate(latest?.bytesPerSec)} B/s</div>
         </div>
-        <div className="rounded border border-nats-border bg-nats-card p-3">
-          <div className="text-[11px] text-gray-500">Backlog Pending</div>
-          <div className="text-sm font-semibold text-gray-200">{(latest?.backlogPending ?? 0).toLocaleString()}</div>
+        <div className="rounded border border-border bg-card p-3">
+          <div className="text-[11px] text-muted-foreground">Backlog Pending</div>
+          <div className="text-sm font-semibold text-foreground">{(latest?.backlogPending ?? 0).toLocaleString()}</div>
         </div>
-        <div className="rounded border border-nats-border bg-nats-card p-3">
-          <div className="text-[11px] text-gray-500">Ack Pending</div>
-          <div className="text-sm font-semibold text-gray-200">{(latest?.ackPending ?? 0).toLocaleString()}</div>
+        <div className="rounded border border-border bg-card p-3">
+          <div className="text-[11px] text-muted-foreground">Ack Pending</div>
+          <div className="text-sm font-semibold text-foreground">{(latest?.ackPending ?? 0).toLocaleString()}</div>
         </div>
       </div>
 

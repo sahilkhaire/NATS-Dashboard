@@ -32,23 +32,23 @@ export function MetadataSection({ metadata, onSave }) {
     >
       <div className="p-4 space-y-2">
         {pairs.length === 0 && !dirty && (
-          <p className="text-xs text-gray-500">No metadata. Click Add to create key-value pairs.</p>
+          <p className="text-xs text-muted-foreground">No metadata. Click Add to create key-value pairs.</p>
         )}
         {pairs.map(([k, v], i) => (
           <div key={i} className="flex gap-2 items-center">
             <input value={k} onChange={e => update(i, 'k', e.target.value)} placeholder="Key"
-              className="w-36 px-2 py-1 text-xs rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
-            <span className="text-gray-600 text-xs">=</span>
+              className="input-enterprise w-36 px-2 py-1 text-xs font-mono" />
+            <span className="text-xs text-muted-foreground">=</span>
             <input value={v} onChange={e => update(i, 'v', e.target.value)} placeholder="Value"
-              className="flex-1 px-2 py-1 text-xs rounded border border-nats-border bg-nats-bg text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nats-accent font-mono" />
-            <button onClick={() => removeRow(i)} className="p-1 rounded hover:bg-nats-error/20 text-gray-500 hover:text-nats-error">
+              className="input-enterprise flex-1 px-2 py-1 text-xs font-mono" />
+            <button onClick={() => removeRow(i)} className="rounded p-1 text-muted-foreground hover:bg-nats-error/20 hover:text-nats-error">
               <XIcon size={12} />
             </button>
           </div>
         ))}
         {error && <p className="text-xs text-nats-error">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button onClick={addRow} className="flex items-center gap-1 px-2.5 py-1 rounded border border-nats-border text-xs text-gray-400 hover:text-nats-accent hover:border-nats-accent/50 transition-colors">
+          <button onClick={addRow} className="flex items-center gap-1 rounded border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary">
             <Plus size={11} /> Add
           </button>
           {dirty && (

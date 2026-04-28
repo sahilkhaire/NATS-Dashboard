@@ -7,6 +7,7 @@ import { NatsProtocolNotice } from '../../components/NatsProtocolNotice'
 import { SortableTh } from '../../components/ui'
 import { formatBytes } from '../../utils/byteFormatter'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Input } from '../../components/ui'
 
 export function ConnectionsPage() {
   // ── All hooks first, no conditional returns until after this block ──
@@ -65,7 +66,7 @@ export function ConnectionsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       {slowConsumers.length > 0 && (
         <AlertBanner variant="error" title="Slow Consumers Detected">
           {slowConsumers.map(c => (
@@ -77,19 +78,19 @@ export function ConnectionsPage() {
       )}
 
       <div className="flex gap-4 flex-wrap">
-        <input
+        <Input
           type="text"
           placeholder="Search by IP, name, language..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] bg-nats-card border border-nats-border rounded px-3 py-2 text-sm"
+          className="min-w-[200px] flex-1"
         />
       </div>
 
-      <div className="rounded-lg border border-nats-border overflow-hidden">
+      <div className="premium-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-nats-card border-b border-nats-border">
+          <table className="premium-table">
+            <thead>
               <tr>
                 <th className="w-8"></th>
                 <SortableTh sortKey="cid" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>ID</SortableTh>
@@ -108,7 +109,7 @@ export function ConnectionsPage() {
               {sortedData.map(c => (
                 <Fragment key={c.cid}>
                   <tr
-                    className="border-b border-nats-border hover:bg-nats-border/50 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() => toggleExpand(c.cid)}
                   >
                     <td className="p-2">{expanded.has(c.cid) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
@@ -118,7 +119,7 @@ export function ConnectionsPage() {
                     <td className="p-3"><StatusBadge status="info">{c.kind || 'Client'}</StatusBadge></td>
                     <td className="p-3">{c.lang || '-'}</td>
                     <td className="p-3">{c.uptime || '-'}</td>
-                    <td className={`p-3 font-mono ${(c.pending_bytes ?? 0) > 0 ? 'text-nats-error' : ''}`}>
+                    <td className={`p-3 font-mono ${(c.pending_bytes ?? 0) > 0 ? 'text-foreground' : 'text-foreground'}`}>
                       {formatBytes(c.pending_bytes)}
                     </td>
                     <td className="p-3 font-mono">{(c.in_msgs ?? 0).toLocaleString()}</td>
@@ -126,12 +127,12 @@ export function ConnectionsPage() {
                     <td className="p-3">{c.subscriptions ?? 0}</td>
                   </tr>
                   {expanded.has(c.cid) && c.subscriptions_list?.length > 0 && (
-                    <tr key={`${c.cid}-subs`} className="bg-nats-bg">
+                    <tr key={`${c.cid}-subs`} className="bg-background">
                       <td colSpan={11} className="p-4">
-                        <div className="text-xs text-nats-text-muted mb-1">Subscriptions:</div>
+                        <div className="mb-1 text-xs text-muted-foreground">Subscriptions:</div>
                         <div className="flex flex-wrap gap-1">
                           {c.subscriptions_list.map((s, i) => (
-                            <span key={i} className="font-mono text-xs bg-nats-card px-2 py-1 rounded">{s}</span>
+                            <span key={i} className="rounded bg-card px-2 py-1 font-mono text-xs">{s}</span>
                           ))}
                         </div>
                       </td>

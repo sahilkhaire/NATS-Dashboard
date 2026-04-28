@@ -21,17 +21,17 @@ export function LoginScreen({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-nats-bg flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center justify-center gap-2 mb-8">
           <Server size={32} className="text-nats-accent" />
-          <span className="font-mono text-xl font-semibold text-white">NATS Dashboard</span>
+          <span className="font-mono text-xl font-semibold text-foreground">NATS Dashboard</span>
         </div>
         <form
           onSubmit={handleSubmit}
-          className="bg-nats-card border border-nats-border rounded-lg p-6 shadow-lg"
+          className="rounded-lg border border-border bg-card p-6 shadow-lg"
         >
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
             <Lock size={18} className="text-nats-accent" />
             Sign in
           </h2>
@@ -42,7 +42,7 @@ export function LoginScreen({ onLogin }) {
           )}
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="username" className="mb-1 block text-sm font-medium text-muted-foreground">
                 Username
               </label>
               <input
@@ -51,13 +51,13 @@ export function LoginScreen({ onLogin }) {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-nats-accent focus:border-transparent"
+                className="input-enterprise w-full"
                 placeholder="Enter username"
                 required
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="mb-1 block text-sm font-medium text-muted-foreground">
                 Password
               </label>
               <input
@@ -66,7 +66,7 @@ export function LoginScreen({ onLogin }) {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 rounded border border-nats-border bg-nats-bg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-nats-accent focus:border-transparent"
+                className="input-enterprise w-full"
                 placeholder="Enter password"
                 required
               />
@@ -75,12 +75,12 @@ export function LoginScreen({ onLogin }) {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-6 w-full py-2 px-4 rounded bg-nats-accent text-nats-bg font-semibold hover:bg-nats-accent/90 focus:outline-none focus:ring-2 focus:ring-nats-accent focus:ring-offset-2 focus:ring-offset-nats-bg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-6 w-full rounded bg-primary px-4 py-2 font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-gray-500">
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           Credentials are validated server-side. Nothing is stored in the browser.
         </p>
       </div>
