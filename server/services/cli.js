@@ -99,8 +99,10 @@ export function validateAndParseNatsCommand(rawCommand) {
   return { valid: true, args }
 }
 
-export function runNatsCommand(args) {
+export function runNatsCommand(args, options = {}) {
   return new Promise((resolve) => {
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : EXECUTION_TIMEOUT_MS
+    const env = options.env ? { ...process.env, ...options.env } : process.env
     const startedAt = Date.now()
     let stdout = ''
     let stderr = ''
@@ -111,7 +113,7 @@ export function runNatsCommand(args) {
     const child = spawn('nats', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
-      env: process.env,
+      env,
     })
 
     const appendChunk = (value, chunk, setTruncated) => {
@@ -150,7 +152,7 @@ export function runNatsCommand(args) {
     const timeoutId = setTimeout(() => {
       timedOut = true
       child.kill('SIGKILL')
-    }, EXECUTION_TIMEOUT_MS)
+    }, timeoutMs)
 
     child.on('close', (code) => {
       clearTimeout(timeoutId)
@@ -158,7 +160,7 @@ export function runNatsCommand(args) {
       let finalStderr = stderr
 
       if (timedOut) {
-        finalStderr = `${finalStderr}${finalStderr ? '\n' : ''}Command timed out after ${EXECUTION_TIMEOUT_MS}ms.`
+        finalStderr = `${finalStderr}${finalStderr ? '\n' : ''}Command timed out after ${timeoutMs}ms.`
       }
       if (stdoutTruncated) stdout = `${stdout}\n[stdout truncated]`
       if (stderrTruncated) finalStderr = `${finalStderr}${finalStderr ? '\n' : ''}[stderr truncated]`

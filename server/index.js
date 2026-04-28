@@ -25,6 +25,8 @@ import { registerStreamRoutes }   from './routes/stream.js'
 import { registerScheduleRoutes } from './routes/schedule.js'
 import { registerPublishRoutes }  from './routes/publish.js'
 import { registerCliRoutes }      from './routes/cli.js'
+import { registerKvRoutes }       from './routes/kv.js'
+import { registerObjectRoutes }   from './routes/object.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -88,6 +90,8 @@ registerStreamRoutes(router,   { NATS_URL, NATS_TOKEN })
 registerScheduleRoutes(router, { NATS_URL, NATS_TOKEN, readJsonBody })
 registerPublishRoutes(router,  { NATS_URL, NATS_TOKEN, readJsonBody })
 registerCliRoutes(router,      { readJsonBody })
+registerKvRoutes(router,       { NATS_URL, NATS_TOKEN })
+registerObjectRoutes(router,   { NATS_URL, NATS_TOKEN })
 
 // ─── Static file handler ──────────────────────────────────────────────────────
 

@@ -17,6 +17,8 @@ import { schedules, createSchedule, serializeSchedule } from './server/services/
 import { scheduledPublishes, executePublish, schedulePublish, serializePublish } from './server/services/publish.js'
 import { readJsonBody }                     from './server/utils/http.js'
 import { runNatsCommand, validateAndParseNatsCommand } from './server/services/cli.js'
+import { registerKvRoutes } from './server/routes/kv.js'
+import { registerObjectRoutes } from './server/routes/object.js'
 
 // ─── Dev-only auth (mirrors server/middleware/auth.js logic inline) ───────────
 
@@ -116,12 +118,38 @@ function resolveConn(serverParam, tokenParam) {
   return { natsServer: ctx.url, token: tokenParam || ctx.token }
 }
 
+function mountRegisteredRoutes(server, routes) {
+  for (const route of routes) {
+    server.middlewares.use(async (req, res, next) => {
+      if (req.method !== route.method) return next()
+      if (guardAuth(req, res)) return
+      const pathname = (req.url || '').split('?')[0]
+      const patternStr = route.path.replace(/:(\w+)/g, '([^/?]+)')
+      const match = pathname.match(new RegExp(`^${patternStr}$`))
+      if (!match) return next()
+      req.params = {}
+      const paramNames = [...route.path.matchAll(/:(\w+)/g)].map((m) => m[1])
+      paramNames.forEach((name, i) => { req.params[name] = match[i + 1] })
+      await route.handler(req, res)
+    })
+  }
+}
+
 // ─── Vite plugin ──────────────────────────────────────────────────────────────
 
 export function natsContextPlugin() {
   return {
     name: 'nats-context',
     configureServer(server) {
+      const methodRoutes = { GET: [], POST: [], DELETE: [] }
+      const router = {
+        get: (path, handler) => methodRoutes.GET.push({ method: 'GET', path, handler }),
+        post: (path, handler) => methodRoutes.POST.push({ method: 'POST', path, handler }),
+        delete: (path, handler) => methodRoutes.DELETE.push({ method: 'DELETE', path, handler }),
+      }
+      registerKvRoutes(router, { NATS_URL: '', NATS_TOKEN: '' })
+      registerObjectRoutes(router, { NATS_URL: '', NATS_TOKEN: '' })
+
 
       // ── Auth ─────────────────────────────────────────────────────────────────
 
@@ -411,6 +439,8 @@ export function natsContextPlugin() {
           res.end(JSON.stringify({ ok: false, error: err.message || 'Failed to run command.' }))
         }
       })
+
+      mountRegisteredRoutes(server, [...methodRoutes.GET, ...methodRoutes.POST, ...methodRoutes.DELETE])
     },
   }
 }

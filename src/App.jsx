@@ -22,6 +22,8 @@ import { LeafNodesPage }    from './pages/leafnodes/LeafNodesPage'
 import { AccountsPage }     from './pages/accounts/AccountsPage'
 import { HealthPage }       from './pages/health/HealthPage'
 import { CliPage }          from './pages/cli/CliPage'
+import { KvPage }           from './pages/kv/KvPage'
+import { ObjectPage }       from './pages/objects/ObjectPage'
 
 function AppContent() {
   const [serverName,   setServerName]   = useState('NATS Dashboard')
@@ -63,6 +65,8 @@ function AppContent() {
             <Route path="/leaf-nodes"  element={<LeafNodesPage />} />
             <Route path="/accounts"    element={<AccountsPage />} />
             <Route path="/health"      element={<HealthPage />} />
+            <Route path="/kv"          element={<KvPage />} />
+            <Route path="/objects"     element={<ObjectPage />} />
             <Route path="/cli"         element={<CliPage />} />
           </Routes>
         </main>
