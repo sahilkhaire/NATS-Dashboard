@@ -35,7 +35,7 @@ export function useTableSort(data, options = {}) {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return arr
-  }, [data, sortBy, sortDir])
+  }, [data, sortBy, sortDir, getSortValue])
 
   return { sortedData, sortBy, sortDir, handleSort }
 }

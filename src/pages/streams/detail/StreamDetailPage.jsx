@@ -348,7 +348,14 @@ export function StreamDetailPage() {
 
         {activeTab === 'analytics'  && <AnalyticsTab points={streamSeries} refreshInterval={refreshInterval} />}
         {activeTab === 'properties' && <PropertiesTab stream={stream} onUpdate={handleUpdate} />}
-        {activeTab === 'consumers'  && <ConsumersTab  consumers={consumers} />}
+        {activeTab === 'consumers'  && (
+          <ConsumersTab
+            consumers={consumers}
+            lastFetch={lastFetch}
+            streamName={streamName}
+            refreshInterval={refreshInterval}
+          />
+        )}
         {activeTab === 'messages'   && <MessagesTab   stream={stream} />}
         {activeTab === 'relations'  && <RelationsTab  stream={stream} allStreams={allStreams} />}
         {activeTab === 'publish'    && <PublishTab    stream={stream} />}

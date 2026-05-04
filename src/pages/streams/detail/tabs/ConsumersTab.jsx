@@ -1,4 +1,6 @@
+import { useCallback } from 'react'
 import { useTableSort } from '../../../../hooks/useTableSort'
+import { useConsumerAckRates, formatAckRate, consumerRowKey } from '../../../../hooks/useConsumerAckRates'
 import { AlertBanner } from '../../../../components/AlertBanner'
 import { SortableTh } from '../../../../components/ui'
 
@@ -27,13 +29,20 @@ const metricColorClass = (value, warnAt, dangerAt) => {
   return 'text-muted-foreground'
 }
 
-export function ConsumersTab({ consumers }) {
-  const { sortedData, sortBy, sortDir, handleSort } = useTableSort(consumers, {
-    defaultSortBy: 'name',
-    getSortValue: (c, key) => {
+export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval }) {
+  const { ratesByName, combinedRate } = useConsumerAckRates(
+    consumers,
+    lastFetch,
+    streamName ?? '',
+    refreshInterval ?? 2000
+  )
+
+  const getSortValue = useCallback(
+    (c, key) => {
       if (key === 'name') return c.name ?? ''
       if (key === 'filter_subjects') return c.config?.filter_subject || c.config?.filter_subjects?.join(',') || ''
       if (key === 'ack_floor') return c.ack_floor?.consumer_seq ?? 0
+      if (key === 'ack_rate') return ratesByName.get(consumerRowKey(c)) ?? -1
       if (key === 'pending') return c.num_pending ?? 0
       if (key === 'ack_pending') return c.num_ack_pending ?? 0
       if (key === 'num_waiting') return c.num_waiting ?? 0
@@ -43,6 +52,12 @@ export function ConsumersTab({ consumers }) {
       if (key === 'paused_until') return c.paused ? 1 : 0
       return ''
     },
+    [ratesByName]
+  )
+
+  const { sortedData, sortBy, sortDir, handleSort } = useTableSort(consumers, {
+    defaultSortBy: 'name',
+    getSortValue,
   })
 
   if (consumers.length === 0) {
@@ -62,6 +77,10 @@ export function ConsumersTab({ consumers }) {
           {lagging.length} consumer(s) have pending or unacked messages.
         </AlertBanner>
       )}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+        <span className="text-muted-foreground">Combined ack throughput</span>
+        <span className="font-mono font-medium text-foreground">{formatAckRate(combinedRate)}</span>
+      </div>
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-card">
@@ -71,6 +90,7 @@ export function ConsumersTab({ consumers }) {
               <SortableTh sortKey="pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Unprocessed Msgs</SortableTh>
               <SortableTh sortKey="ack_pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Outstanding Acks</SortableTh>
               <SortableTh sortKey="ack_floor" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Floor</SortableTh>
+              <SortableTh sortKey="ack_rate" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack / s</SortableTh>
               <SortableTh sortKey="num_waiting" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Waiting Clients</SortableTh>
               <SortableTh sortKey="redelivered" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Redelivered Msgs</SortableTh>
               <SortableTh sortKey="ack_policy" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Policy</SortableTh>
@@ -80,8 +100,8 @@ export function ConsumersTab({ consumers }) {
           </thead>
           <tbody>
             {sortedData.map(c => (
-              <tr key={c.name} className="border-b border-border hover:bg-muted/30">
-                <td className="p-3 font-mono font-medium text-nats-accent">{c.name}</td>
+              <tr key={consumerRowKey(c) ?? c.name} className="border-b border-border hover:bg-muted/30">
+                <td className="p-3 font-mono font-medium text-nats-accent">{c.name ?? c.config?.durable_name ?? '—'}</td>
                 <td className="p-3 font-mono text-xs text-foreground">
                   {c.config?.filter_subject || c.config?.filter_subjects?.join(', ') || '—'}
                 </td>
@@ -92,6 +112,7 @@ export function ConsumersTab({ consumers }) {
                   {(c.num_ack_pending ?? 0).toLocaleString()}
                 </td>
                 <td className="p-3 font-mono text-muted-foreground">{formatFloor(c.ack_floor)}</td>
+                <td className="p-3 font-mono text-muted-foreground">{formatAckRate(ratesByName.get(consumerRowKey(c)))}</td>
                 <td className={`p-3 font-mono ${metricColorClass(c.num_waiting ?? 0, 1, 100)}`}>{(c.num_waiting ?? 0).toLocaleString()}</td>
                 <td className={`p-3 font-mono ${metricColorClass(c.num_redelivered ?? 0, 1, 50)}`}>{c.num_redelivered ?? 0}</td>
                 <td className="p-3 text-xs text-foreground">{c.config?.ack_policy ?? '—'}</td>

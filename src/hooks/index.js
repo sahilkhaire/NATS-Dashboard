@@ -1,3 +1,4 @@
+export { useConsumerAckRates, formatAckRate, consumerRowKey } from './useConsumerAckRates'
 export { useNatsContexts }       from './useNatsContexts'
 export { useNatsPolling }        from './useNatsPolling'
 export { usePagination }         from './usePagination'
