@@ -30,7 +30,12 @@ const metricColorClass = (value, warnAt, dangerAt) => {
 }
 
 export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval }) {
-  const { ratesByName, combinedRate } = useConsumerAckRates(
+  const {
+    inRatesByName,
+    outRatesByName,
+    combinedInRate,
+    combinedOutRate,
+  } = useConsumerAckRates(
     consumers,
     lastFetch,
     streamName ?? '',
@@ -42,7 +47,8 @@ export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval
       if (key === 'name') return c.name ?? ''
       if (key === 'filter_subjects') return c.config?.filter_subject || c.config?.filter_subjects?.join(',') || ''
       if (key === 'ack_floor') return c.ack_floor?.consumer_seq ?? 0
-      if (key === 'ack_rate') return ratesByName.get(consumerRowKey(c)) ?? -1
+      if (key === 'in_rate') return inRatesByName.get(consumerRowKey(c)) ?? -1
+      if (key === 'out_rate') return outRatesByName.get(consumerRowKey(c)) ?? -1
       if (key === 'pending') return c.num_pending ?? 0
       if (key === 'ack_pending') return c.num_ack_pending ?? 0
       if (key === 'num_waiting') return c.num_waiting ?? 0
@@ -52,7 +58,7 @@ export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval
       if (key === 'paused_until') return c.paused ? 1 : 0
       return ''
     },
-    [ratesByName]
+    [inRatesByName, outRatesByName]
   )
 
   const { sortedData, sortBy, sortDir, handleSort } = useTableSort(consumers, {
@@ -77,9 +83,15 @@ export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval
           {lagging.length} consumer(s) have pending or unacked messages.
         </AlertBanner>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
-        <span className="text-muted-foreground">Combined ack throughput</span>
-        <span className="font-mono font-medium text-foreground">{formatAckRate(combinedRate)}</span>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Incoming (delivered)</span>
+          <span className="font-mono font-medium text-foreground">{formatAckRate(combinedInRate)}</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Outgoing (acked)</span>
+          <span className="font-mono font-medium text-foreground">{formatAckRate(combinedOutRate)}</span>
+        </div>
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full text-sm">
@@ -90,7 +102,8 @@ export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval
               <SortableTh sortKey="pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Unprocessed Msgs</SortableTh>
               <SortableTh sortKey="ack_pending" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Outstanding Acks</SortableTh>
               <SortableTh sortKey="ack_floor" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Floor</SortableTh>
-              <SortableTh sortKey="ack_rate" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack / s</SortableTh>
+              <SortableTh sortKey="in_rate" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>In / s</SortableTh>
+              <SortableTh sortKey="out_rate" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Out / s</SortableTh>
               <SortableTh sortKey="num_waiting" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Waiting Clients</SortableTh>
               <SortableTh sortKey="redelivered" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Redelivered Msgs</SortableTh>
               <SortableTh sortKey="ack_policy" currentSortBy={sortBy} currentSortDir={sortDir} onSort={handleSort}>Ack Policy</SortableTh>
@@ -99,27 +112,31 @@ export function ConsumersTab({ consumers, lastFetch, streamName, refreshInterval
             </tr>
           </thead>
           <tbody>
-            {sortedData.map(c => (
-              <tr key={consumerRowKey(c) ?? c.name} className="border-b border-border hover:bg-muted/30">
-                <td className="p-3 font-mono font-medium text-nats-accent">{c.name ?? c.config?.durable_name ?? '—'}</td>
-                <td className="p-3 font-mono text-xs text-foreground">
-                  {c.config?.filter_subject || c.config?.filter_subjects?.join(', ') || '—'}
-                </td>
-                <td className={`p-3 font-mono ${metricColorClass(c.num_pending ?? 0, 100, 1000)}`}>
-                  {(c.num_pending ?? 0).toLocaleString()}
-                </td>
-                <td className={`p-3 font-mono ${metricColorClass(c.num_ack_pending ?? 0, 1, 100)}`}>
-                  {(c.num_ack_pending ?? 0).toLocaleString()}
-                </td>
-                <td className="p-3 font-mono text-muted-foreground">{formatFloor(c.ack_floor)}</td>
-                <td className="p-3 font-mono text-muted-foreground">{formatAckRate(ratesByName.get(consumerRowKey(c)))}</td>
-                <td className={`p-3 font-mono ${metricColorClass(c.num_waiting ?? 0, 1, 100)}`}>{(c.num_waiting ?? 0).toLocaleString()}</td>
-                <td className={`p-3 font-mono ${metricColorClass(c.num_redelivered ?? 0, 1, 50)}`}>{c.num_redelivered ?? 0}</td>
-                <td className="p-3 text-xs text-foreground">{c.config?.ack_policy ?? '—'}</td>
-                <td className="p-3 text-xs text-foreground">{c.config?.deliver_policy ?? '—'}</td>
-                <td className="p-3 text-xs text-muted-foreground">{formatPausedUntil(c)}</td>
-              </tr>
-            ))}
+            {sortedData.map(c => {
+              const rowKey = consumerRowKey(c)
+              return (
+                <tr key={rowKey ?? c.name} className="border-b border-border hover:bg-muted/30">
+                  <td className="p-3 font-mono font-medium text-nats-accent">{c.name ?? c.config?.durable_name ?? '—'}</td>
+                  <td className="p-3 font-mono text-xs text-foreground">
+                    {c.config?.filter_subject || c.config?.filter_subjects?.join(', ') || '—'}
+                  </td>
+                  <td className={`p-3 font-mono ${metricColorClass(c.num_pending ?? 0, 100, 1000)}`}>
+                    {(c.num_pending ?? 0).toLocaleString()}
+                  </td>
+                  <td className={`p-3 font-mono ${metricColorClass(c.num_ack_pending ?? 0, 1, 100)}`}>
+                    {(c.num_ack_pending ?? 0).toLocaleString()}
+                  </td>
+                  <td className="p-3 font-mono text-muted-foreground">{formatFloor(c.ack_floor)}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{formatAckRate(inRatesByName.get(rowKey))}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{formatAckRate(outRatesByName.get(rowKey))}</td>
+                  <td className={`p-3 font-mono ${metricColorClass(c.num_waiting ?? 0, 1, 100)}`}>{(c.num_waiting ?? 0).toLocaleString()}</td>
+                  <td className={`p-3 font-mono ${metricColorClass(c.num_redelivered ?? 0, 1, 50)}`}>{c.num_redelivered ?? 0}</td>
+                  <td className="p-3 text-xs text-foreground">{c.config?.ack_policy ?? '—'}</td>
+                  <td className="p-3 text-xs text-foreground">{c.config?.deliver_policy ?? '—'}</td>
+                  <td className="p-3 text-xs text-muted-foreground">{formatPausedUntil(c)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

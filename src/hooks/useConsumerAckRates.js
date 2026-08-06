@@ -6,14 +6,22 @@ export function consumerRowKey(c) {
   return n != null && String(n) !== '' ? String(n) : null
 }
 
-/** Same single value as the Ack Floor column: stream sequence first, then consumer sequence. */
-function ackFloorScalar(consumer) {
-  const f = consumer?.ack_floor
-  if (!f) return null
-  const v = f.stream_seq ?? f.consumer_seq
+function seqScalar(obj) {
+  if (!obj) return null
+  const v = obj.stream_seq ?? obj.consumer_seq
   if (v == null || v === '') return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+/** Incoming: messages delivered to the consumer. */
+function deliveredScalar(consumer) {
+  return seqScalar(consumer?.delivered)
+}
+
+/** Outgoing: messages acknowledged (ack floor). */
+function ackFloorScalar(consumer) {
+  return seqScalar(consumer?.ack_floor)
 }
 
 export function formatAckRate(n) {
@@ -23,31 +31,48 @@ export function formatAckRate(n) {
 }
 
 /**
- * Keeps previous ack floor per consumer in a ref. On each new poll (`lastFetch` change),
- * delta = newFloor - previousFloor, rate = delta / (refreshIntervalMs / 1000), then store new floor.
+ * Per-consumer incoming (delivered) and outgoing (ack) rates between polls.
  *
- * Consumers with ack floor 0 (unused) or no positive delta this interval are omitted from
- * per-row rates and the combined sum (shown as — instead of 0.0 msg/s).
+ * rate = (current - previous) / (refreshIntervalMs / 1000)
+ *
+ * Consumers with sequence 0 or no positive delta are omitted (shown as —),
+ * so idle rows do not pull combined rates to 0.0.
  */
 export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshIntervalMs) {
-  const [result, setResult] = useState({ ratesByName: new Map(), combinedRate: null })
-  const prevFloorByKey = useRef(new Map())
+  const [result, setResult] = useState({
+    inRatesByName: new Map(),
+    outRatesByName: new Map(),
+    combinedInRate: null,
+    combinedOutRate: null,
+    // back-compat aliases used by older call sites
+    ratesByName: new Map(),
+    combinedRate: null,
+  })
+  const prevByKey = useRef(new Map()) // key -> { delivered, ackFloor }
   const lastPollTs = useRef(null)
   const streamKeyRef = useRef(streamKey)
 
   useEffect(() => {
     if (streamKeyRef.current !== streamKey) {
       streamKeyRef.current = streamKey
-      prevFloorByKey.current = new Map()
+      prevByKey.current = new Map()
       lastPollTs.current = null
     }
 
     if (lastFetch == null || !consumers?.length || !Number.isFinite(refreshIntervalMs) || refreshIntervalMs <= 0) {
       if (!consumers?.length) {
-        prevFloorByKey.current = new Map()
+        prevByKey.current = new Map()
         lastPollTs.current = null
       }
-      setResult({ ratesByName: new Map(), combinedRate: null })
+      const empty = {
+        inRatesByName: new Map(),
+        outRatesByName: new Map(),
+        combinedInRate: null,
+        combinedOutRate: null,
+        ratesByName: new Map(),
+        combinedRate: null,
+      }
+      setResult(empty)
       return
     }
 
@@ -57,50 +82,82 @@ export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshInte
     lastPollTs.current = lastFetch
 
     const dtSec = refreshIntervalMs / 1000
-    const ratesByName = new Map()
+    const inRatesByName = new Map()
+    const outRatesByName = new Map()
     const seen = new Set()
-    let anyActive = false
-    let sum = 0
+    let anyIn = false
+    let anyOut = false
+    let sumIn = 0
+    let sumOut = 0
 
     for (const c of consumers) {
       const key = consumerRowKey(c)
       if (!key) continue
       seen.add(key)
 
-      const floor = ackFloorScalar(c)
-      const previous = prevFloorByKey.current.get(key)
+      const delivered = deliveredScalar(c)
+      const ackFloor = ackFloorScalar(c)
+      const previous = prevByKey.current.get(key)
 
-      // Unused / never-acked consumers (floor 0) — omit from rates and combined sum.
-      // Also require a positive delta so idle (0.0) rows do not poison combined throughput.
-      if (floor != null && floor > 0 && previous != null && previous > 0) {
-        const delta = floor - previous
+      // Incoming (delivered)
+      if (delivered != null && delivered > 0 && previous?.delivered != null && previous.delivered > 0) {
+        const delta = delivered - previous.delivered
         if (delta > 0) {
           const rate = delta / dtSec
-          ratesByName.set(key, rate)
-          anyActive = true
-          sum += rate
+          inRatesByName.set(key, rate)
+          anyIn = true
+          sumIn += rate
         } else {
-          ratesByName.set(key, null)
+          inRatesByName.set(key, null)
         }
       } else {
-        ratesByName.set(key, null)
+        inRatesByName.set(key, null)
       }
 
-      // Keep baseline only for consumers that have started acking
-      if (floor != null && floor > 0) {
-        prevFloorByKey.current.set(key, floor)
+      // Outgoing (ack floor)
+      if (ackFloor != null && ackFloor > 0 && previous?.ackFloor != null && previous.ackFloor > 0) {
+        const delta = ackFloor - previous.ackFloor
+        if (delta > 0) {
+          const rate = delta / dtSec
+          outRatesByName.set(key, rate)
+          anyOut = true
+          sumOut += rate
+        } else {
+          outRatesByName.set(key, null)
+        }
       } else {
-        prevFloorByKey.current.delete(key)
+        outRatesByName.set(key, null)
+      }
+
+      // Baselines only for sequences that have started
+      const nextPrev = {
+        delivered: delivered != null && delivered > 0 ? delivered : undefined,
+        ackFloor: ackFloor != null && ackFloor > 0 ? ackFloor : undefined,
+      }
+      if (nextPrev.delivered != null || nextPrev.ackFloor != null) {
+        prevByKey.current.set(key, {
+          delivered: nextPrev.delivered ?? previous?.delivered,
+          ackFloor: nextPrev.ackFloor ?? previous?.ackFloor,
+        })
+      } else {
+        prevByKey.current.delete(key)
       }
     }
 
-    for (const k of [...prevFloorByKey.current.keys()]) {
-      if (!seen.has(k)) prevFloorByKey.current.delete(k)
+    for (const k of [...prevByKey.current.keys()]) {
+      if (!seen.has(k)) prevByKey.current.delete(k)
     }
+
+    const combinedInRate = anyIn ? sumIn : null
+    const combinedOutRate = anyOut ? sumOut : null
 
     setResult({
-      ratesByName,
-      combinedRate: anyActive ? sum : null,
+      inRatesByName,
+      outRatesByName,
+      combinedInRate,
+      combinedOutRate,
+      ratesByName: outRatesByName,
+      combinedRate: combinedOutRate,
     })
   }, [consumers, lastFetch, streamKey, refreshIntervalMs])
 
