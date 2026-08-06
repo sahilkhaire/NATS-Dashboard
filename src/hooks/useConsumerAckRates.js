@@ -26,10 +26,8 @@ export function formatAckRate(n) {
  * Keeps previous ack floor per consumer in a ref. On each new poll (`lastFetch` change),
  * delta = newFloor - previousFloor, rate = delta / (refreshIntervalMs / 1000), then store new floor.
  *
- * @param {Array} consumers
- * @param {number|null} lastFetch - ms; must change when a new /jsz payload arrives
- * @param {string} streamKey
- * @param {number} refreshIntervalMs - same as useNatsPolling interval (e.g. 2000)
+ * Consumers with ack floor 0 (unused) or no positive delta this interval are omitted from
+ * per-row rates and the combined sum (shown as — instead of 0.0 msg/s).
  */
 export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshIntervalMs) {
   const [result, setResult] = useState({ ratesByName: new Map(), combinedRate: null })
@@ -61,7 +59,7 @@ export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshInte
     const dtSec = refreshIntervalMs / 1000
     const ratesByName = new Map()
     const seen = new Set()
-    let anyValid = false
+    let anyActive = false
     let sum = 0
 
     for (const c of consumers) {
@@ -72,12 +70,14 @@ export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshInte
       const floor = ackFloorScalar(c)
       const previous = prevFloorByKey.current.get(key)
 
-      if (floor != null && previous != null) {
+      // Unused / never-acked consumers (floor 0) — omit from rates and combined sum.
+      // Also require a positive delta so idle (0.0) rows do not poison combined throughput.
+      if (floor != null && floor > 0 && previous != null && previous > 0) {
         const delta = floor - previous
-        if (delta >= 0) {
+        if (delta > 0) {
           const rate = delta / dtSec
           ratesByName.set(key, rate)
-          anyValid = true
+          anyActive = true
           sum += rate
         } else {
           ratesByName.set(key, null)
@@ -86,8 +86,11 @@ export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshInte
         ratesByName.set(key, null)
       }
 
-      if (floor != null) {
+      // Keep baseline only for consumers that have started acking
+      if (floor != null && floor > 0) {
         prevFloorByKey.current.set(key, floor)
+      } else {
+        prevFloorByKey.current.delete(key)
       }
     }
 
@@ -97,7 +100,7 @@ export function useConsumerAckRates(consumers, lastFetch, streamKey, refreshInte
 
     setResult({
       ratesByName,
-      combinedRate: anyValid ? sum : null,
+      combinedRate: anyActive ? sum : null,
     })
   }, [consumers, lastFetch, streamKey, refreshIntervalMs])
 
